@@ -7,8 +7,7 @@ import Link from 'next/link';
 import { LayoutDashboard, LogOut, Layers, Menu, X, ScanBarcode } from 'lucide-react';
 
 const NAV = [
-  { label: 'Stock', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Scan', path: '/scan', icon: ScanBarcode },
+  { label: 'Dashboard', path: '/scan', icon: ScanBarcode },
 ];
 
 export default function DashboardShell({ children }) {
