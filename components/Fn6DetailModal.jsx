@@ -1,177 +1,99 @@
 'use client';
 
 import { useState } from 'react';
-import { fn6Api } from '../api/fn6';
-import { TYPE_OPTIONS_MODAL } from '../constants/fn6';
-import { parseApiError } from '../lib/api-utils';
-import { useImageUpload } from '../hooks/useImageUpload';
-import ImageUploader from '../components/ui/ImageUploader';
 import MediaGallery from '../components/ui/MediaGallery';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
   SheetDescription, SheetBody, SheetFooter,
 } from '../components/ui/sheet';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Alert, AlertDescription } from '../components/ui/alert';
-import { AlertCircle, Loader2, X } from 'lucide-react';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '../components/ui/select';
+import { Badge } from '../components/ui/badge';
+import { TYPE_LABELS, TYPE_COLORS } from '../constants/fn6';
+import { X } from 'lucide-react';
 
-export default function Fn6DetailModal({ item, onClose, onSaved }) {
+const DASH = '—';
+
+function formatCurrency(v) {
+  if (v == null || isNaN(v)) return DASH;
+  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(v);
+}
+
+function Field({ label, value }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-sm font-medium text-foreground">{value ?? DASH}</span>
+    </div>
+  );
+}
+
+export default function Fn6DetailModal({ item, onClose }) {
   const [open, setOpen] = useState(true);
 
   const close = () => {
     setOpen(false);
-    setTimeout(onClose, 300); // wait for exit animation (260ms + buffer)
+    setTimeout(onClose, 300);
   };
 
-  const [form, setForm] = useState({
-    name:        item?.com_mco || '',
-    type:        item?.type ? String(item.type) : undefined,
-    price:       item?.price ?? '',
-    weight:      item?.weight ?? '',
-    quantity:    item?.quantity ?? '',
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const { file: imageFile, preview: imagePreview, handleChange: handleImageChange } = useImageUpload(item?.image || null);
-
-  const handleChange = (field) => (value) => setForm((p) => ({ ...p, [field]: value }));
-
-  const handleSave = async () => {
-    setError('');
-    setSaving(true);
-    try {
-      const data = new FormData();
-      data.append('com_mco', form.name || '');
-      data.append('co', String(form.type || ''));
-      data.append('gold_price', form.price || 0);
-      data.append('go_dr', form.weight || 0);
-      data.append('qt', form.quantity || 1);
-      if (imageFile) data.append('gold_photo', imageFile);
-      await fn6Api.update(item.code, data);
-      onSaved();
-    } catch (err) {
-      setError(parseApiError(err));
-    } finally {
-      setSaving(false);
-    }
-  };
+  const typeColor = TYPE_COLORS[item?.type] || 'oklch(55% 0 0)';
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) close(); }}>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>Edit {item?.code}</SheetTitle>
-          <SheetDescription>Update item details below.</SheetDescription>
+          <SheetTitle className="flex items-center gap-2">
+            <code className="font-mono">{item?.code}</code>
+            <span
+              className="type-badge text-xs"
+              style={{
+                background: `color-mix(in oklch, ${typeColor} 12%, transparent)`,
+                color: typeColor,
+                border: `1px solid color-mix(in oklch, ${typeColor} 22%, transparent)`,
+              }}
+            >
+              {TYPE_LABELS[item?.type] || `${item?.type}K`}
+            </span>
+          </SheetTitle>
+          <SheetDescription>{item?.name || item?.type_name || 'Item details'}</SheetDescription>
         </SheetHeader>
 
         <SheetBody className="space-y-5">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle size={16} />
-              <AlertDescription className="flex items-center justify-between gap-2">
-                <span>{error}</span>
-                <button
-                  onClick={() => setError('')}
-                  className="shrink-0 opacity-70 hover:opacity-100 border-0 bg-transparent cursor-pointer"
-                  aria-label="Dismiss error"
-                >
-                  <X size={14} />
-                </button>
-              </AlertDescription>
-            </Alert>
+          {/* Main image */}
+          {item?.image && (
+            <div className="rounded-lg overflow-hidden border bg-muted/20 aspect-square w-full max-w-[200px] mx-auto">
+              <img src={item.image} alt={item.code} className="w-full h-full object-cover" />
+            </div>
           )}
-
-          <ImageUploader preview={imagePreview} onChange={handleImageChange} />
 
           <div className="dialog-section">
             <div className="dialog-section-title">Details</div>
-            <div className="dialog-form-group">
-              <div className="dialog-field">
-                <Label>Code</Label>
-                <Input value={String(item?.code || '')} disabled className="bg-muted/50 cursor-not-allowed opacity-60" />
-              </div>
-              <div className="dialog-field">
-                <Label htmlFor="detail-name">Name</Label>
-                <Input
-                  id="detail-name"
-                  value={form.name}
-                  onChange={(e) => handleChange('name')(e.target.value)}
-                  placeholder="Item description"
-                />
-              </div>
-              <div className="dialog-field">
-                <Label>Karat</Label>
-                <Select value={form.type} onValueChange={handleChange('type')}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select karat" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TYPE_OPTIONS_MODAL.filter((o) => o.value).map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="dialog-field">
-                <Label htmlFor="detail-price">Price (EGP)</Label>
-                <Input
-                  id="detail-price"
-                  type="number"
-                  value={String(form.price)}
-                  onChange={(e) => handleChange('price')(e.target.value)}
-                  placeholder="0"
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Code" value={item?.code} />
+              <Field label="Karat" value={TYPE_LABELS[item?.type] || `${item?.type}K`} />
+              <Field label="Category" value={item?.type_name} />
+              <Field label="Name" value={item?.name} />
+              <Field label="Description" value={item?.description} />
+              <Field label="Branch" value={item?.branch_name} />
             </div>
           </div>
 
           <div className="dialog-section">
             <div className="dialog-section-title">Specifications</div>
-            <div className="dialog-form-group">
-              <div className="dialog-field">
-                <Label htmlFor="detail-weight">Weight (g)</Label>
-                <Input
-                  id="detail-weight"
-                  type="number"
-                  value={String(form.weight)}
-                  onChange={(e) => handleChange('weight')(e.target.value)}
-                  placeholder="0"
-                />
-              </div>
-              <div className="dialog-field">
-                <Label htmlFor="detail-qty">Quantity</Label>
-                <Input
-                  id="detail-qty"
-                  type="number"
-                  value={String(form.quantity)}
-                  onChange={(e) => handleChange('quantity')(e.target.value)}
-                  placeholder="1"
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Price (EGP)" value={item?.price != null ? formatCurrency(item.price) : DASH} />
+              <Field label="Total Price" value={item?.total_price != null ? formatCurrency(item.total_price) : DASH} />
+              <Field label="Weight (g)" value={item?.weight != null ? `${Number(item.weight).toFixed(3)} g` : DASH} />
+              <Field label="Total Weight" value={item?.total_weight != null ? `${Number(item.total_weight).toFixed(3)} g` : DASH} />
+              <Field label="Mfg / g" value={item?.manufacturing || DASH} />
+              <Field label="Quantity" value={item?.quantity} />
             </div>
           </div>
 
-          <MediaGallery mco={item?.code} initialMedia={item?.media || []} />
-
+          <MediaGallery mco={item?.code} />
         </SheetBody>
 
         <SheetFooter>
-          <Button variant="outline" onClick={close} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin" />
-                Saving…
-              </span>
-            ) : 'Save Changes'}
-          </Button>
+          <Button variant="outline" onClick={close}>Close</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
