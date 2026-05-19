@@ -14,7 +14,7 @@ import {
 import {
   ScanBarcode, RotateCcw, Package, ShoppingBag,
   ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown,
-  CheckCircle2, AlertCircle, Loader2, Plus, X, ImageIcon, Film,
+  CheckCircle2, AlertCircle, Loader2, Plus, X, ImageIcon, Film, Trash2,
 } from 'lucide-react';
 
 const DASH = '—';
@@ -174,6 +174,9 @@ function ShopifyPublishForm({ item }) {
   const [publishing, setPublishing] = useState(false);
   const [success, setSuccess] = useState(null);
   const [pubError, setPubError] = useState('');
+  const [publishedId, setPublishedId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
   const savedMediaUrls = [
     ...(item.gold_photo_url ? [item.gold_photo_url] : []),
@@ -207,10 +210,29 @@ function ShopifyPublishForm({ item }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to publish');
       setSuccess(data.shopUrl || 'Published successfully');
+      setPublishedId(data.product?.id || null);
     } catch (err) {
       setPubError(err.message || 'Failed to publish');
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!publishedId) return;
+    setDeleting(true);
+    setPubError('');
+    try {
+      const res = await fetch(`/api/shopify/products/${publishedId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete');
+      setDeleted(true);
+      setSuccess(null);
+      setPublishedId(null);
+    } catch (err) {
+      setPubError(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -247,18 +269,33 @@ function ShopifyPublishForm({ item }) {
             <span>Published! <a href={success} target="_blank" rel="noopener noreferrer" className="underline font-medium">View on Shopify</a></span>
           </div>
         )}
+        {deleted && (
+          <div className="pub-error" style={{ borderColor: 'var(--muted)', color: 'var(--muted-foreground)' }}>
+            <X size={14} className="shrink-0" />
+            <span>Removed from Shopify</span>
+          </div>
+        )}
         {pubError && (
           <div className="pub-error">
             <AlertCircle size={14} className="shrink-0" />
             <span>{pubError}</span>
           </div>
         )}
-        <Button onClick={handlePublish} disabled={publishing || !title.trim() || !price} className="w-full">
-          {publishing
-            ? <><Loader2 size={14} className="animate-spin mr-2" />Publishing…</>
-            : <><ShoppingBag size={14} className="mr-2" />Publish to Shopify</>
-          }
-        </Button>
+        {!publishedId ? (
+          <Button onClick={handlePublish} disabled={publishing || !title.trim() || !price || deleted} className="w-full">
+            {publishing
+              ? <><Loader2 size={14} className="animate-spin mr-2" />Publishing…</>
+              : <><ShoppingBag size={14} className="mr-2" />Publish to Shopify</>
+            }
+          </Button>
+        ) : (
+          <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="w-full">
+            {deleting
+              ? <><Loader2 size={14} className="animate-spin mr-2" />Removing…</>
+              : <><Trash2 size={14} className="mr-2" />Remove from Shopify</>
+            }
+          </Button>
+        )}
       </div>
     </div>
   );

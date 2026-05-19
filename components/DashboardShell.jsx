@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, LogOut, Layers, Menu, X, ScanBarcode } from 'lucide-react';
+import { LogOut, Layers, Menu, X, ScanBarcode, ShoppingBag } from 'lucide-react';
 
 const NAV = [
   { label: 'Dashboard', path: '/scan', icon: ScanBarcode },
+  { label: 'Shopify', path: '/shopify', icon: ShoppingBag },
 ];
 
 export default function DashboardShell({ children }) {
