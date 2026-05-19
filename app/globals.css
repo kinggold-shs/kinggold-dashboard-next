@@ -419,12 +419,13 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--card);
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-xs);
   animation: fadeIn var(--duration-slow) var(--ease-out) both;
   animation-delay: 300ms;
 }
-.table-wrap table { border-collapse: separate; border-spacing: 0; width: 100%; }
+.table-wrap table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 400px; }
 .table-wrap code {
   font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
   background: var(--neutral-50);
@@ -730,19 +731,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media (max-width: 768px) {
-  .sidebar { width: 56px !important; }
-  .sidebar-brand-text, .sidebar-nav-item span,
-  .sidebar-user-name, .sidebar-logout span { display: none !important; }
-  .sidebar-brand { justify-content: center; padding: var(--space-4) 0 !important; }
-  .sidebar-nav-item { justify-content: center; padding: var(--space-2) !important; }
-  .sidebar-user { justify-content: center; padding: var(--space-3) 0 !important; }
-  .sidebar-logout { justify-content: center; padding: var(--space-2) 0 var(--space-3) !important; }
-  .main-content { padding: 0 var(--space-3) var(--space-6) !important; }
-  .sidebar-section-label { display: none !important; }
+  .sidebar { display: none !important; }
+  .main-content {
+    padding: var(--space-3) var(--space-3) calc(72px + env(safe-area-inset-bottom)) !important;
+    max-height: none !important;
+  }
 }
 
 /* ─── Scan Page ─── */
-.scan-page { display: flex; flex-direction: column; gap: var(--space-5); max-width: 600px; }
+.scan-page { display: flex; flex-direction: column; gap: var(--space-5); max-width: 600px; width: 100%; }
 .scan-header { display: flex; align-items: center; gap: var(--space-3); }
 .scan-icon-wrap {
   width: 44px; height: 44px; border-radius: var(--radius);
@@ -756,7 +753,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   height: 52px;
   padding: 0 var(--space-4) 0 3rem;
-  font-size: var(--text-lg);
+  font-size: 16px; /* prevent iOS zoom */
   font-family: ui-monospace, "SF Mono", Consolas, monospace;
   border: 2px solid var(--border);
   border-radius: var(--radius);
@@ -764,6 +761,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--foreground);
   transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
   outline: none;
+  -webkit-appearance: none;
 }
 .scan-input:focus {
   border-color: var(--gold-500);
@@ -772,6 +770,12 @@ h1, h2, h3, h4, h5, h6 {
 .scan-input::placeholder { color: var(--neutral-400); font-family: inherit; }
 .scan-input:disabled { opacity: 0.5; cursor: not-allowed; }
 .scan-btn { height: 52px; padding: 0 var(--space-5); font-size: var(--text-base); white-space: nowrap; flex-shrink: 0; }
+
+@media (max-width: 400px) {
+  .scan-input-wrap { flex-wrap: wrap; }
+  .scan-input { font-size: 16px; }
+  .scan-btn { width: 100%; flex-shrink: unset; }
+}
 
 .scan-error {
   display: flex; align-items: center; gap: var(--space-2);
@@ -828,7 +832,10 @@ h1, h2, h3, h4, h5, h6 {
   font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 520px) {
+  .scan-fields-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 360px) {
   .scan-fields-grid { grid-template-columns: 1fr; }
   .scan-field { border-right: none; }
   .scan-field:nth-last-child(-n+2) { border-bottom: 1px solid var(--neutral-100); }
@@ -955,6 +962,11 @@ h1, h2, h3, h4, h5, h6 {
   display: flex; align-items: flex-end; justify-content: space-between;
   gap: var(--space-3); flex-wrap: wrap;
 }
+@media (max-width: 480px) {
+  .stock-section-header { flex-direction: column; align-items: stretch; }
+  .stock-section-header > div:last-child { display: flex; gap: var(--space-2); }
+  .stock-section-header input { flex: 1; }
+}
 
 /* ─── Media Section ─── */
 .media-section {
@@ -1055,13 +1067,14 @@ h1, h2, h3, h4, h5, h6 {
   animation-delay: var(--delay, 0ms);
 }
 
-/* ─── Mobile portrait: hide sidebar completely, use top bar ─── */
+/* ─── Mobile top bar ─── */
 .mobile-header { display: none; }
 
-@media (max-width: 540px) {
+@media (max-width: 768px) {
   .mobile-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: var(--space-3) var(--space-4);
+    padding-top: calc(var(--space-3) + env(safe-area-inset-top));
     background: var(--card);
     border-bottom: 1px solid var(--border);
     position: sticky; top: 0; z-index: var(--z-sticky);
@@ -1069,48 +1082,41 @@ h1, h2, h3, h4, h5, h6 {
   }
   .mobile-header-brand { display: flex; align-items: center; gap: var(--space-2); }
   .mobile-header-user { font-size: var(--text-xs); color: var(--muted-foreground); font-weight: 500; }
-  .mobile-header-menu {
-    background: none; border: none; color: var(--foreground);
-    cursor: pointer; padding: var(--space-1);
-    display: flex; align-items: center; justify-content: center;
-    border-radius: calc(var(--radius) - 2px);
-    transition: background var(--duration-fast);
-  }
-  .mobile-header-menu:hover { background: var(--muted); }
-  .sidebar { display: none !important; }
-  .main-content { padding: var(--space-3) var(--space-3) var(--space-8) !important; max-height: none !important; }
   .gold-banner-grid { grid-template-columns: 1fr 1fr !important; gap: var(--space-2) !important; }
   .gold-price-value { font-size: var(--text-base) !important; }
 }
 
-/* Mobile drawer */
-.mobile-drawer-overlay {
-  position: fixed; inset: 0; z-index: 500;
-  background: oklch(14.5% 0.006 264 / 0.5);
-  animation: fadeIn 180ms var(--ease-out);
+/* ─── Bottom nav — mobile only ─── */
+.bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: calc(60px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 12px oklch(44% 0.016 264 / 0.07);
+    z-index: var(--z-sticky);
+  }
+  .bottom-nav-item {
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px;
+    font-size: 0.625rem; font-weight: 500;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    min-height: 44px;
+    transition: color var(--duration-fast) var(--ease-out),
+                background var(--duration-fast) var(--ease-out);
+    border-radius: 0;
+    background: none; border: none; cursor: pointer; font-family: inherit;
+  }
+  .bottom-nav-item:hover { background: var(--muted); }
+  .bottom-nav-item.active { color: var(--gold-600); }
+  .bottom-nav-item.active svg { color: var(--gold-500); }
 }
-.mobile-drawer {
-  position: absolute; top: 0; right: 0; bottom: 0;
-  width: 260px;
-  background: var(--card);
-  border-left: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-  display: flex; flex-direction: column;
-  animation: sheetSlideIn 280ms var(--ease-out);
-}
-.mobile-drawer-header {
-  display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  padding-right: var(--space-3);
-}
-.mobile-drawer-close {
-  background: none; border: none; cursor: pointer;
-  color: var(--muted-foreground); padding: var(--space-2);
-  border-radius: calc(var(--radius) - 2px);
-  display: flex; align-items: center; justify-content: center;
-  transition: color var(--duration-fast), background var(--duration-fast);
-}
-.mobile-drawer-close:hover { color: var(--foreground); background: var(--muted); }
 
 /* ─── Filters ─── */
 .filters-card {
@@ -1330,8 +1336,11 @@ h1, h2, h3, h4, h5, h6 {
 
 .shopify-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 480px) {
+  .shopify-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
 }
 
 .shopify-product-card {
@@ -1441,14 +1450,15 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   border-radius: 0.4rem;
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--muted-foreground);
   cursor: pointer;
   transition: all 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 .shopify-action-btn:hover {
   background: var(--accent);
