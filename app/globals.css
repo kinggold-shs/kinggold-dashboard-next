@@ -741,6 +741,63 @@ h1, h2, h3, h4, h5, h6 {
   .sidebar-section-label { display: none !important; }
 }
 
+/* ─── Mobile portrait: hide sidebar completely, use top bar ─── */
+.mobile-header { display: none; }
+
+@media (max-width: 540px) {
+  .mobile-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: var(--z-sticky);
+    box-shadow: var(--shadow-xs);
+  }
+  .mobile-header-brand { display: flex; align-items: center; gap: var(--space-2); }
+  .mobile-header-user { font-size: var(--text-xs); color: var(--muted-foreground); font-weight: 500; }
+  .mobile-header-menu {
+    background: none; border: none; color: var(--foreground);
+    cursor: pointer; padding: var(--space-1);
+    display: flex; align-items: center; justify-content: center;
+    border-radius: calc(var(--radius) - 2px);
+    transition: background var(--duration-fast);
+  }
+  .mobile-header-menu:hover { background: var(--muted); }
+  .sidebar { display: none !important; }
+  .main-content { padding: var(--space-3) var(--space-3) var(--space-8) !important; max-height: none !important; }
+  .gold-banner-grid { grid-template-columns: 1fr 1fr !important; gap: var(--space-2) !important; }
+  .gold-price-value { font-size: var(--text-base) !important; }
+}
+
+/* Mobile drawer */
+.mobile-drawer-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: oklch(14.5% 0.006 264 / 0.5);
+  animation: fadeIn 180ms var(--ease-out);
+}
+.mobile-drawer {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 260px;
+  background: var(--card);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column;
+  animation: sheetSlideIn 280ms var(--ease-out);
+}
+.mobile-drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-right: var(--space-3);
+}
+.mobile-drawer-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted-foreground); padding: var(--space-2);
+  border-radius: calc(var(--radius) - 2px);
+  display: flex; align-items: center; justify-content: center;
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+.mobile-drawer-close:hover { color: var(--foreground); background: var(--muted); }
+
 /* ─── Filters ─── */
 .filters-card {
   background: var(--card); padding: var(--space-4);

@@ -130,9 +130,17 @@ export default function DashboardPage() {
   const items = listRes?.results || [];
   const count = listRes?.count || 0;
 
+  // Auto-open detail when a scan returns exactly one item
+  useMemo(() => {
+    if (!isLoading && items.length === 1 && count === 1) {
+      setSelectedItem(items[0]);
+    }
+  }, [items, count, isLoading]);
+
   const handleFilterChange = useCallback((newFilters) => {
     setFilters(newFilters);
     setPage(1);
+    setSelectedItem(null);
   }, []);
 
   const handleSort = useCallback((key) => {
@@ -241,7 +249,7 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : items.length > 0 ? (
-          <div className="table-wrap">
+          <div className="table-wrap overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
