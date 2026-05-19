@@ -20,12 +20,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://*.myshopify.com https://*.shopify.com https://admin.shopify.com",
-          },
-          // Override the default SAMEORIGIN that Next.js sets
-          {
-            key: 'X-Frame-Options',
-            value: 'ALLOWALL',
+            value: "frame-ancestors *",
           },
         ],
       },
