@@ -1,18 +1,39 @@
 import { NextResponse } from 'next/server';
 
+async function getShopifyToken(domain, clientId, clientSecret) {
+  const res = await fetch(`https://${domain}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Token fetch failed: ${res.status} ${text}`);
+  }
+  const data = await res.json();
+  return data.access_token;
+}
+
 export async function POST(request) {
   try {
     const { title, body_html, product_type, price, sku, images } = await request.json();
 
     const domain = process.env.SHOPIFY_STORE_DOMAIN;
-    const token = process.env.SHOPIFY_ADMIN_TOKEN;
+    const clientId = process.env.SHOPIFY_CLIENT_ID;
+    const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
 
-    if (!domain || !token) {
+    if (!domain || !clientId || !clientSecret) {
       return NextResponse.json(
-        { error: 'Shopify not configured. Add SHOPIFY_STORE_DOMAIN and SHOPIFY_ADMIN_TOKEN to environment variables.' },
+        { error: 'Shopify not configured. Add SHOPIFY_STORE_DOMAIN, SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET to environment variables.' },
         { status: 500 }
       );
     }
+
+    const token = await getShopifyToken(domain, clientId, clientSecret);
 
     const product = {
       product: {
