@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, LogOut, Layers, Menu, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, Layers, Menu, X, ScanBarcode } from 'lucide-react';
 
 const NAV = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'Stock', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'Scan', path: '/scan', icon: ScanBarcode },
 ];
 
 export default function DashboardShell({ children }) {

@@ -741,6 +741,100 @@ h1, h2, h3, h4, h5, h6 {
   .sidebar-section-label { display: none !important; }
 }
 
+/* ─── Scan Page ─── */
+.scan-page { display: flex; flex-direction: column; gap: var(--space-5); max-width: 600px; }
+.scan-header { display: flex; align-items: center; gap: var(--space-3); }
+.scan-icon-wrap {
+  width: 44px; height: 44px; border-radius: var(--radius);
+  background: var(--gold-500);
+  display: flex; align-items: center; justify-content: center;
+  color: white; flex-shrink: 0;
+  box-shadow: var(--shadow-gold);
+}
+.scan-input-wrap { display: flex; gap: var(--space-2); align-items: center; }
+.scan-input {
+  width: 100%;
+  height: 52px;
+  padding: 0 var(--space-4) 0 3rem;
+  font-size: var(--text-lg);
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--foreground);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+  outline: none;
+}
+.scan-input:focus {
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 3px oklch(64% 0.165 65 / 0.12);
+}
+.scan-input::placeholder { color: var(--neutral-400); font-family: inherit; }
+.scan-input:disabled { opacity: 0.5; cursor: not-allowed; }
+.scan-btn { height: 52px; padding: 0 var(--space-5); font-size: var(--text-base); white-space: nowrap; flex-shrink: 0; }
+
+.scan-error {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: oklch(58% 0.220 25 / 0.08);
+  border: 1px solid oklch(58% 0.220 25 / 0.20);
+  border-radius: var(--radius);
+  color: var(--destructive-600);
+  font-size: var(--text-sm);
+}
+
+.scan-result {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.scan-result-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: var(--neutral-50);
+}
+.scan-result-code {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.scan-result-code code {
+  font-size: var(--text-xl); font-weight: 700;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  color: var(--neutral-800);
+}
+.scan-result-name { font-size: var(--text-sm); color: var(--muted-foreground); margin: 0; }
+.scan-fields-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.scan-field {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--neutral-100);
+  border-right: 1px solid var(--neutral-100);
+}
+.scan-field:nth-child(even) { border-right: none; }
+.scan-field:nth-last-child(-n+2) { border-bottom: none; }
+.scan-field-label {
+  font-size: 0.6875rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--muted-foreground);
+}
+.scan-field-value {
+  font-size: var(--text-base); font-weight: 600;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+  .scan-fields-grid { grid-template-columns: 1fr; }
+  .scan-field { border-right: none; }
+  .scan-field:nth-last-child(-n+2) { border-bottom: 1px solid var(--neutral-100); }
+  .scan-field:last-child { border-bottom: none; }
+}
+
 /* ─── Mobile portrait: hide sidebar completely, use top bar ─── */
 .mobile-header { display: none; }
 

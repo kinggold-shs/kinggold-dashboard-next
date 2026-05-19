@@ -5,31 +5,13 @@ export const fn6Api = {
     return api.post('/Sup/api/token/', { username, password });
   },
 
+  // Authenticated list — used by dashboard page (br=2 filter applied by caller)
   list(params = {}) {
-    return api.get('/Sup/api/fn6/dashboard/', { params });
+    return api.get('/Sup/api/fn6/', { params });
   },
 
-  get(mco) {
-    return api.get(`/Sup/api/fn6/dashboard/${mco}/`);
-  },
-
-  stats(params = {}) {
-    return api.get('/Sup/api/dashboard/stats/', { params });
-  },
-
-  goldPrices() {
-    return api.get('/Sup/api/gold-price/');
-  },
-
-  listMedia(mco) {
-    return api.get(`/Sup/api/fn6/dashboard/${mco}/media/`);
-  },
-
-  addMedia(mco, formData) {
-    return api.post(`/Sup/api/fn6/dashboard/${mco}/media/`, formData);
-  },
-
-  deleteMedia(mco, id) {
-    return api.delete(`/Sup/api/fn6/dashboard/${mco}/media/${id}/`);
+  // Public single-item lookup by mco — used by scan page (no auth needed)
+  getByMco(mco) {
+    return api.get(`/Sup/api/fn6/by-mco/${mco}/`);
   },
 };
