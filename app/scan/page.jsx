@@ -56,7 +56,7 @@ function MediaSection({ item, imageUrls, onImageUrlsChange, videoUrls, onVideoUr
   const removeVid = (i) => onVideoUrlsChange(videoUrls.filter((_, idx) => idx !== i));
   const updateVid = (i, val) => onVideoUrlsChange(videoUrls.map((v, idx) => idx === i ? val : v));
 
-  const validImages = imageUrls.filter(Boolean);
+  const allImages = [item.gold_photo_url, ...imageUrls].filter(Boolean);
 
   return (
     <div className="media-section">
@@ -65,42 +65,40 @@ function MediaSection({ item, imageUrls, onImageUrlsChange, videoUrls, onVideoUr
         <span>Media</span>
       </div>
 
-      {/* Image previews */}
-      {validImages.length > 0 && (
+      {/* Thumbnails */}
+      {allImages.length > 0 && (
         <div className="media-preview-row">
-          {validImages.map((url, i) => (
+          {allImages.map((url, i) => (
             <div key={i} className="media-thumb">
-              <img src={url} alt="" onError={e => { e.target.style.display = 'none'; }} />
+              <img src={url} alt="" onError={e => { e.target.parentElement.style.display = 'none'; }} />
             </div>
           ))}
         </div>
       )}
 
-      {/* Image URLs */}
+      {/* Image URLs — only shown when added */}
       <div className="media-url-group">
         <div className="media-url-label"><ImageIcon size={11} /> Images</div>
         <div className="space-y-2">
           {imageUrls.map((url, i) => (
             <div key={i} className="flex gap-2 items-center">
-              <Input value={url} onChange={e => updateImg(i, e.target.value)} placeholder="https://…" className="flex-1 text-xs" />
-              {imageUrls.length > 1 && (
-                <button onClick={() => removeImg(i)} className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
-                  <X size={14} />
-                </button>
-              )}
+              <Input value={url} onChange={e => updateImg(i, e.target.value)} placeholder="https://…" className="flex-1 text-xs" autoFocus />
+              <button onClick={() => removeImg(i)} className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
+                <X size={14} />
+              </button>
             </div>
           ))}
           <button onClick={addImg} className="add-url-btn"><Plus size={12} /> Add image</button>
         </div>
       </div>
 
-      {/* Video URLs */}
+      {/* Video URLs — only shown when added */}
       <div className="media-url-group">
         <div className="media-url-label"><Film size={11} /> Videos</div>
         <div className="space-y-2">
           {videoUrls.map((url, i) => (
             <div key={i} className="flex gap-2 items-center">
-              <Input value={url} onChange={e => updateVid(i, e.target.value)} placeholder="https://…" className="flex-1 text-xs" />
+              <Input value={url} onChange={e => updateVid(i, e.target.value)} placeholder="https://…" className="flex-1 text-xs" autoFocus />
               <button onClick={() => removeVid(i)} className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
                 <X size={14} />
               </button>
@@ -114,7 +112,8 @@ function MediaSection({ item, imageUrls, onImageUrlsChange, videoUrls, onVideoUr
 }
 
 // ── Shopify Publish Form ──────────────────────────────────────────────────────
-function ShopifyPublishForm({ item, imageUrls }) {
+function ShopifyPublishForm({ item, imageUrls: extraImageUrls }) {
+  const imageUrls = [item.gold_photo_url, ...extraImageUrls].filter(Boolean);
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
   const [price, setPrice] = useState(item.price ? String(Math.round(Number(item.price))) : '');
@@ -205,8 +204,8 @@ function ShopifyPublishForm({ item, imageUrls }) {
 function ScanResult({ item, onReset }) {
   const typeColor = TYPE_COLORS[item.co] || 'oklch(55% 0 0)';
   const [showPublish, setShowPublish] = useState(false);
-  const [imageUrls, setImageUrls] = useState(item.gold_photo_url ? [item.gold_photo_url] : ['']);
-  const [videoUrls, setVideoUrls] = useState(['']);
+  const [imageUrls, setImageUrls] = useState([]);
+  const [videoUrls, setVideoUrls] = useState([]);
 
   return (
     <div className="scan-result animate-fadeIn">
