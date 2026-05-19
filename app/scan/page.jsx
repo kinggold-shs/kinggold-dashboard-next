@@ -47,28 +47,63 @@ function Field({ label, value }) {
 }
 
 // ── Media Section ─────────────────────────────────────────────────────────────
-function MediaSection({ item, imageFiles, onImageFilesChange, videoFiles, onVideoFilesChange }) {
+function MediaSection({ item }) {
   const imgInputRef = useRef(null);
   const vidInputRef = useRef(null);
 
+  // Each entry: { id, url, media_type, status: 'saved'|'uploading'|'error', preview, _tempId }
+  const [files, setFiles] = useState(() =>
+    (item.media_files || []).map(m => ({
+      id: m.id, url: m.url, media_type: m.media_type,
+      status: 'saved', preview: m.url,
+    }))
+  );
+
+  const uploading = files.some(f => f.status === 'uploading');
+  const hasError = files.some(f => f.status === 'error');
+  const allSaved = files.length > 0 && !uploading && !hasError;
+
+  const uploadFile = async (file, mediaType) => {
+    const tempId = `${Date.now()}-${Math.random()}`;
+    const preview = URL.createObjectURL(file);
+    setFiles(prev => [...prev, { _tempId: tempId, preview, media_type: mediaType, status: 'uploading' }]);
+    try {
+      const res = await fn6Api.uploadMedia(item.mco, file, mediaType);
+      const { id, url } = res.data;
+      setFiles(prev => prev.map(f =>
+        f._tempId === tempId ? { id, url, media_type: mediaType, status: 'saved', preview: url } : f
+      ));
+    } catch {
+      setFiles(prev => prev.map(f =>
+        f._tempId === tempId ? { ...f, status: 'error' } : f
+      ));
+    }
+  };
+
   const handleImgSelect = (e) => {
-    const files = Array.from(e.target.files);
-    const newEntries = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
-    onImageFilesChange([...imageFiles, ...newEntries]);
+    Array.from(e.target.files).forEach(f => uploadFile(f, 'image'));
     e.target.value = '';
   };
-
   const handleVidSelect = (e) => {
-    const files = Array.from(e.target.files);
-    const newEntries = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
-    onVideoFilesChange([...videoFiles, ...newEntries]);
+    Array.from(e.target.files).forEach(f => uploadFile(f, 'video'));
     e.target.value = '';
   };
 
-  const removeImg = (i) => onImageFilesChange(imageFiles.filter((_, idx) => idx !== i));
-  const removeVid = (i) => onVideoFilesChange(videoFiles.filter((_, idx) => idx !== i));
+  const removeFile = async (f) => {
+    if (f.id) {
+      setFiles(prev => prev.map(x => x.id === f.id ? { ...x, status: 'uploading' } : x));
+      try {
+        await fn6Api.deleteMedia(f.id);
+        setFiles(prev => prev.filter(x => x.id !== f.id));
+      } catch {
+        setFiles(prev => prev.map(x => x.id === f.id ? { ...x, status: 'error' } : x));
+      }
+    } else {
+      setFiles(prev => prev.filter(x => x._tempId !== f._tempId));
+    }
+  };
 
-  const hasMedia = item.gold_photo_url || imageFiles.length > 0 || videoFiles.length > 0;
+  const hasMedia = item.gold_photo_url || files.length > 0;
 
   return (
     <div className="media-section">
@@ -78,29 +113,33 @@ function MediaSection({ item, imageFiles, onImageFilesChange, videoFiles, onVide
       <div className="media-section-title">
         <ImageIcon size={14} />
         <span>Media</span>
+        <div className="media-save-status">
+          {uploading && <><Loader2 size={11} className="animate-spin" /><span>Saving…</span></>}
+          {allSaved && <><CheckCircle2 size={11} className="text-success-600" /><span className="text-success-600">Saved</span></>}
+          {hasError && <><AlertCircle size={11} className="text-destructive" /><span className="text-destructive">Error</span></>}
+        </div>
       </div>
 
       {hasMedia && (
         <div className="media-preview-row">
-          {/* Existing VPS photo */}
           {item.gold_photo_url && (
-            <div className="media-thumb media-thumb-vps" title="From VPS">
+            <div className="media-thumb" title="Main photo (VPS)">
               <img src={item.gold_photo_url} alt="" onError={e => { e.target.parentElement.style.display = 'none'; }} />
             </div>
           )}
-          {/* Uploaded images */}
-          {imageFiles.map((f, i) => (
-            <div key={i} className="media-thumb media-thumb-new">
-              <img src={f.preview} alt="" />
-              <button className="media-thumb-remove" onClick={() => removeImg(i)}><X size={10} /></button>
-            </div>
-          ))}
-          {/* Uploaded videos */}
-          {videoFiles.map((f, i) => (
-            <div key={i} className="media-thumb media-thumb-new media-thumb-video">
-              <video src={f.preview} className="w-full h-full object-cover" />
-              <button className="media-thumb-remove" onClick={() => removeVid(i)}><X size={10} /></button>
-              <div className="media-video-badge"><Film size={10} /></div>
+          {files.map((f, i) => (
+            <div key={f.id ?? f._tempId} className={`media-thumb media-thumb-new${f.status === 'uploading' ? ' media-thumb-loading' : ''}`}>
+              {f.media_type === 'video'
+                ? <video src={f.preview} className="w-full h-full object-cover" />
+                : <img src={f.preview} alt="" onError={e => { e.target.style.opacity = '0.3'; }} />
+              }
+              {f.status === 'uploading' && (
+                <div className="media-thumb-overlay"><Loader2 size={16} className="animate-spin text-white" /></div>
+              )}
+              {f.media_type === 'video' && <div className="media-video-badge"><Film size={10} /></div>}
+              {f.status !== 'uploading' && (
+                <button className="media-thumb-remove" onClick={() => removeFile(f)}><X size={10} /></button>
+              )}
             </div>
           ))}
         </div>
@@ -128,7 +167,7 @@ function toBase64(file) {
 }
 
 // ── Shopify Publish Form ──────────────────────────────────────────────────────
-function ShopifyPublishForm({ item, imageFiles }) {
+function ShopifyPublishForm({ item }) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
   const [price, setPrice] = useState(item.price ? String(Math.round(Number(item.price))) : '');
@@ -136,7 +175,11 @@ function ShopifyPublishForm({ item, imageFiles }) {
   const [success, setSuccess] = useState(null);
   const [pubError, setPubError] = useState('');
 
-  const totalImages = (item.gold_photo_url ? 1 : 0) + imageFiles.length;
+  const savedMediaUrls = [
+    ...(item.gold_photo_url ? [item.gold_photo_url] : []),
+    ...(item.media_files || []).filter(m => m.media_type === 'image').map(m => m.url),
+  ].filter(Boolean);
+  const totalImages = savedMediaUrls.length;
 
   const bodyHtml = [
     `<p><strong>Karat:</strong> ${TYPE_LABELS[item.co] || `${item.co}K`}</p>`,
@@ -150,13 +193,8 @@ function ShopifyPublishForm({ item, imageFiles }) {
     setSuccess(null);
     setPubError('');
     try {
-      // Build images array: VPS photo as src URL, uploaded files as base64 attachments
-      const images = [];
-      if (item.gold_photo_url) images.push({ src: item.gold_photo_url });
-      for (const { file } of imageFiles) {
-        const b64 = await toBase64(file);
-        images.push({ attachment: b64, filename: file.name });
-      }
+      // All saved images as src URLs (VPS photo + uploaded media)
+      const images = savedMediaUrls.map(url => ({ src: url }));
 
       const res = await fetch('/api/shopify/publish', {
         method: 'POST',
@@ -230,8 +268,6 @@ function ShopifyPublishForm({ item, imageFiles }) {
 function ScanResult({ item, onReset }) {
   const typeColor = TYPE_COLORS[item.co] || 'oklch(55% 0 0)';
   const [showPublish, setShowPublish] = useState(false);
-  const [imageFiles, setImageFiles] = useState([]);
-  const [videoFiles, setVideoFiles] = useState([]);
 
   return (
     <div className="scan-result animate-fadeIn">
@@ -263,13 +299,7 @@ function ScanResult({ item, onReset }) {
       </div>
 
       {/* Media */}
-      <MediaSection
-        item={item}
-        imageFiles={imageFiles}
-        onImageFilesChange={setImageFiles}
-        videoFiles={videoFiles}
-        onVideoFilesChange={setVideoFiles}
-      />
+      <MediaSection item={item} />
 
       {/* Shopify toggle */}
       <div className="scan-result-actions">
@@ -279,7 +309,7 @@ function ScanResult({ item, onReset }) {
         </button>
       </div>
 
-      {showPublish && <ShopifyPublishForm key={item.mco} item={item} imageFiles={imageFiles} />}
+      {showPublish && <ShopifyPublishForm key={item.mco} item={item} />}
     </div>
   );
 }
