@@ -1,22 +1,21 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import DashboardShell from '../../components/DashboardShell';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Skeleton } from '../../components/ui/skeleton';
 import {
   ShoppingBag, Pencil, Trash2, Check, X, Loader2,
-  AlertCircle, ChevronLeft, ChevronRight, ExternalLink,
-  Package,
+  AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Package,
 } from 'lucide-react';
 
 const PRODUCT_TYPES = ['Ring', 'Necklace', 'Bracelet', 'Earrings', 'Chain', 'Pendant', 'Bangle', 'Other'];
 
 async function fetchProducts(pageInfo = '') {
   const url = pageInfo
-    ? `/api/shopify/products?limit=20&page_info=${pageInfo}`
+    ? `/api/shopify/products?limit=20&page_info=${encodeURIComponent(pageInfo)}`
     : `/api/shopify/products?limit=20`;
   const res = await fetch(url);
   const data = await res.json();
@@ -42,7 +41,8 @@ async function deleteProduct(id) {
   return true;
 }
 
-function ProductCard({ product, onUpdated, onDeleted }) {
+function ProductCard({ product, queryKey, onDeleted }) {
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [title, setTitle] = useState(product.title);
@@ -55,16 +55,19 @@ function ProductCard({ product, onUpdated, onDeleted }) {
 
   const image = product.images?.[0]?.src;
   const sku = product.variants?.[0]?.sku;
-  const domain = typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || '')
-    : '';
 
   const handleSave = async () => {
     setSaving(true);
     setErr('');
     try {
       const updated = await updateProduct(product.id, { title, price, product_type: productType, status });
-      onUpdated(updated);
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          products: old.products.map(p => p.id === updated.id ? updated : p),
+        };
+      });
       setEditing(false);
     } catch (e) {
       setErr(e.message);
@@ -78,6 +81,10 @@ function ProductCard({ product, onUpdated, onDeleted }) {
     setErr('');
     try {
       await deleteProduct(product.id);
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old) return old;
+        return { ...old, products: old.products.filter(p => p.id !== product.id) };
+      });
       onDeleted(product.id);
     } catch (e) {
       setErr(e.message);
@@ -97,7 +104,6 @@ function ProductCard({ product, onUpdated, onDeleted }) {
 
   return (
     <div className="shopify-product-card">
-      {/* Image */}
       <div className="shopify-product-img">
         {image
           ? <img src={image} alt={product.title} />
@@ -108,7 +114,6 @@ function ProductCard({ product, onUpdated, onDeleted }) {
         </span>
       </div>
 
-      {/* Body */}
       <div className="shopify-product-body">
         {editing ? (
           <div className="shopify-edit-form">
@@ -121,20 +126,12 @@ function ProductCard({ product, onUpdated, onDeleted }) {
                 placeholder="Price"
                 className="text-sm flex-1"
               />
-              <select
-                value={status}
-                onChange={e => setStatus(e.target.value)}
-                className="form-select text-sm flex-1"
-              >
+              <select value={status} onChange={e => setStatus(e.target.value)} className="form-select text-sm flex-1">
                 <option value="active">Active</option>
                 <option value="draft">Draft</option>
               </select>
             </div>
-            <select
-              value={productType}
-              onChange={e => setProductType(e.target.value)}
-              className="form-select text-sm"
-            >
+            <select value={productType} onChange={e => setProductType(e.target.value)} className="form-select text-sm">
               <option value="">— Type —</option>
               {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -162,7 +159,6 @@ function ProductCard({ product, onUpdated, onDeleted }) {
         )}
       </div>
 
-      {/* Actions */}
       {!editing && (
         <div className="shopify-product-actions">
           <a
@@ -201,17 +197,17 @@ function ProductCard({ product, onUpdated, onDeleted }) {
 export default function ShopifyPage() {
   const [pageInfo, setPageInfo] = useState('');
   const [history, setHistory] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [pagination, setPagination] = useState({});
 
-  const { isLoading, error, refetch } = useQuery({
-    queryKey: ['shopify-products', pageInfo],
+  const queryKey = ['shopify-products', pageInfo];
+
+  const { data, isLoading, error } = useQuery({
+    queryKey,
     queryFn: () => fetchProducts(pageInfo),
-    onSuccess: (data) => {
-      setProducts(data.products || []);
-      setPagination(data.pagination || {});
-    },
+    staleTime: 30_000,
   });
+
+  const products = data?.products || [];
+  const pagination = data?.pagination || {};
 
   const handleNext = () => {
     setHistory(h => [...h, pageInfo]);
@@ -225,13 +221,7 @@ export default function ShopifyPage() {
     setPageInfo(last ?? '');
   };
 
-  const handleUpdated = useCallback((updated) => {
-    setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
-  }, []);
-
-  const handleDeleted = useCallback((id) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-  }, []);
+  const handleDeleted = useCallback(() => {}, []);
 
   return (
     <DashboardShell>
@@ -251,7 +241,7 @@ export default function ShopifyPage() {
           <div className="shopify-grid">
             {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className="shopify-product-card">
-                <Skeleton className="shopify-product-img" />
+                <Skeleton className="w-full aspect-square" />
                 <div className="shopify-product-body space-y-2">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
@@ -283,7 +273,7 @@ export default function ShopifyPage() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  onUpdated={handleUpdated}
+                  queryKey={queryKey}
                   onDeleted={handleDeleted}
                 />
               ))}
@@ -291,18 +281,10 @@ export default function ShopifyPage() {
 
             {(pagination.nextPageInfo || history.length > 0) && (
               <div className="pagination-bar">
-                <Button
-                  size="sm" variant="outline" className="h-8 gap-1"
-                  disabled={history.length === 0}
-                  onClick={handlePrev}
-                >
+                <Button size="sm" variant="outline" className="h-8 gap-1" disabled={history.length === 0} onClick={handlePrev}>
                   <ChevronLeft size={14} /> Prev
                 </Button>
-                <Button
-                  size="sm" variant="outline" className="h-8 gap-1"
-                  disabled={!pagination.nextPageInfo}
-                  onClick={handleNext}
-                >
+                <Button size="sm" variant="outline" className="h-8 gap-1" disabled={!pagination.nextPageInfo} onClick={handleNext}>
                   Next <ChevronRight size={14} />
                 </Button>
               </div>
