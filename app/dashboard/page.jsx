@@ -17,7 +17,6 @@ import {
 } from '../../components/ui/table';
 
 const DASH = '—';
-const BRANCH = 2;
 
 function formatCurrency(v) {
   if (v == null || isNaN(v)) return DASH;
@@ -47,13 +46,12 @@ export default function DashboardPage() {
   const [sortDir, setSortDir] = useState('asc');
 
   const listParams = useMemo(() => ({
-    br: BRANCH,
     page,
     page_size: 50,
     ...(searchParam ? { search: searchParam } : {}),
   }), [page, searchParam]);
 
-  const { data: listRes, isLoading } = useQuery({
+  const { data: listRes, isLoading, error: listError } = useQuery({
     queryKey: ['fn6', 'list', listParams],
     queryFn: () => fn6Api.list(listParams).then(r => r.data),
   });
@@ -100,7 +98,7 @@ export default function DashboardPage() {
       <div className="space-y-4">
         <div className="flex items-end justify-between gap-3 flex-wrap animate-fadeIn">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Gold Stock — Branch {BRANCH}</h1>
+            <h1 className="text-xl font-bold tracking-tight">Gold Stock</h1>
             {!isLoading && (
               <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
                 {formatNumber(count)} item{count !== 1 ? 's' : ''}
