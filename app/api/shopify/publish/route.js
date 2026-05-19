@@ -26,7 +26,7 @@ export async function POST(request) {
           sku: String(sku),
           inventory_management: null,
         }],
-        images: (images || []).filter(Boolean).map(src => ({ src })),
+        images: (images || []),
       },
     };
 

@@ -47,79 +47,96 @@ function Field({ label, value }) {
 }
 
 // ── Media Section ─────────────────────────────────────────────────────────────
-function MediaSection({ item, imageUrls, onImageUrlsChange, videoUrls, onVideoUrlsChange }) {
-  const addImg = () => onImageUrlsChange([...imageUrls, '']);
-  const removeImg = (i) => onImageUrlsChange(imageUrls.filter((_, idx) => idx !== i));
-  const updateImg = (i, val) => onImageUrlsChange(imageUrls.map((v, idx) => idx === i ? val : v));
+function MediaSection({ item, imageFiles, onImageFilesChange, videoFiles, onVideoFilesChange }) {
+  const imgInputRef = useRef(null);
+  const vidInputRef = useRef(null);
 
-  const addVid = () => onVideoUrlsChange([...videoUrls, '']);
-  const removeVid = (i) => onVideoUrlsChange(videoUrls.filter((_, idx) => idx !== i));
-  const updateVid = (i, val) => onVideoUrlsChange(videoUrls.map((v, idx) => idx === i ? val : v));
+  const handleImgSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const newEntries = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
+    onImageFilesChange([...imageFiles, ...newEntries]);
+    e.target.value = '';
+  };
 
-  const allImages = [item.gold_photo_url, ...imageUrls].filter(Boolean);
+  const handleVidSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const newEntries = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
+    onVideoFilesChange([...videoFiles, ...newEntries]);
+    e.target.value = '';
+  };
+
+  const removeImg = (i) => onImageFilesChange(imageFiles.filter((_, idx) => idx !== i));
+  const removeVid = (i) => onVideoFilesChange(videoFiles.filter((_, idx) => idx !== i));
+
+  const hasMedia = item.gold_photo_url || imageFiles.length > 0 || videoFiles.length > 0;
 
   return (
     <div className="media-section">
+      <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImgSelect} />
+      <input ref={vidInputRef} type="file" accept="video/*" multiple className="hidden" onChange={handleVidSelect} />
+
       <div className="media-section-title">
         <ImageIcon size={14} />
         <span>Media</span>
       </div>
 
-      {/* Thumbnails */}
-      {allImages.length > 0 && (
+      {hasMedia && (
         <div className="media-preview-row">
-          {allImages.map((url, i) => (
-            <div key={i} className="media-thumb">
-              <img src={url} alt="" onError={e => { e.target.parentElement.style.display = 'none'; }} />
+          {/* Existing VPS photo */}
+          {item.gold_photo_url && (
+            <div className="media-thumb media-thumb-vps" title="From VPS">
+              <img src={item.gold_photo_url} alt="" onError={e => { e.target.parentElement.style.display = 'none'; }} />
+            </div>
+          )}
+          {/* Uploaded images */}
+          {imageFiles.map((f, i) => (
+            <div key={i} className="media-thumb media-thumb-new">
+              <img src={f.preview} alt="" />
+              <button className="media-thumb-remove" onClick={() => removeImg(i)}><X size={10} /></button>
+            </div>
+          ))}
+          {/* Uploaded videos */}
+          {videoFiles.map((f, i) => (
+            <div key={i} className="media-thumb media-thumb-new media-thumb-video">
+              <video src={f.preview} className="w-full h-full object-cover" />
+              <button className="media-thumb-remove" onClick={() => removeVid(i)}><X size={10} /></button>
+              <div className="media-video-badge"><Film size={10} /></div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Image URLs — only shown when added */}
-      <div className="media-url-group">
-        <div className="media-url-label"><ImageIcon size={11} /> Images</div>
-        <div className="space-y-2">
-          {imageUrls.map((url, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <Input value={url} onChange={e => updateImg(i, e.target.value)} placeholder="https://…" className="flex-1 text-xs" autoFocus />
-              <button onClick={() => removeImg(i)} className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-          <button onClick={addImg} className="add-url-btn"><Plus size={12} /> Add image</button>
-        </div>
-      </div>
-
-      {/* Video URLs — only shown when added */}
-      <div className="media-url-group">
-        <div className="media-url-label"><Film size={11} /> Videos</div>
-        <div className="space-y-2">
-          {videoUrls.map((url, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <Input value={url} onChange={e => updateVid(i, e.target.value)} placeholder="https://…" className="flex-1 text-xs" autoFocus />
-              <button onClick={() => removeVid(i)} className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-          <button onClick={addVid} className="add-url-btn"><Plus size={12} /> Add video</button>
-        </div>
+      <div className="media-add-row">
+        <button className="add-url-btn" onClick={() => imgInputRef.current?.click()}>
+          <Plus size={12} /><ImageIcon size={12} /> Add image
+        </button>
+        <button className="add-url-btn" onClick={() => vidInputRef.current?.click()}>
+          <Plus size={12} /><Film size={12} /> Add video
+        </button>
       </div>
     </div>
   );
 }
 
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── Shopify Publish Form ──────────────────────────────────────────────────────
-function ShopifyPublishForm({ item, imageUrls: extraImageUrls }) {
-  const imageUrls = [item.gold_photo_url, ...extraImageUrls].filter(Boolean);
+function ShopifyPublishForm({ item, imageFiles }) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
   const [price, setPrice] = useState(item.price ? String(Math.round(Number(item.price))) : '');
   const [publishing, setPublishing] = useState(false);
   const [success, setSuccess] = useState(null);
   const [pubError, setPubError] = useState('');
+
+  const totalImages = (item.gold_photo_url ? 1 : 0) + imageFiles.length;
 
   const bodyHtml = [
     `<p><strong>Karat:</strong> ${TYPE_LABELS[item.co] || `${item.co}K`}</p>`,
@@ -133,13 +150,20 @@ function ShopifyPublishForm({ item, imageUrls: extraImageUrls }) {
     setSuccess(null);
     setPubError('');
     try {
+      // Build images array: VPS photo as src URL, uploaded files as base64 attachments
+      const images = [];
+      if (item.gold_photo_url) images.push({ src: item.gold_photo_url });
+      for (const { file } of imageFiles) {
+        const b64 = await toBase64(file);
+        images.push({ attachment: b64, filename: file.name });
+      }
+
       const res = await fetch('/api/shopify/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title, body_html: bodyHtml, product_type: productType,
-          price, sku: String(item.mco),
-          images: imageUrls.filter(Boolean),
+          price, sku: String(item.mco), images,
         }),
       });
       const data = await res.json();
@@ -173,10 +197,12 @@ function ShopifyPublishForm({ item, imageUrls: extraImageUrls }) {
           <label className="form-label">Price (EGP)</label>
           <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
         </div>
-        <div className="media-used-note">
-          <ImageIcon size={12} />
-          <span>{imageUrls.filter(Boolean).length} image{imageUrls.filter(Boolean).length !== 1 ? 's' : ''} from Media section will be attached</span>
-        </div>
+        {totalImages > 0 && (
+          <div className="media-used-note">
+            <ImageIcon size={12} />
+            <span>{totalImages} image{totalImages !== 1 ? 's' : ''} from Media will be attached</span>
+          </div>
+        )}
         {success && (
           <div className="pub-success">
             <CheckCircle2 size={14} className="shrink-0" />
@@ -204,8 +230,8 @@ function ShopifyPublishForm({ item, imageUrls: extraImageUrls }) {
 function ScanResult({ item, onReset }) {
   const typeColor = TYPE_COLORS[item.co] || 'oklch(55% 0 0)';
   const [showPublish, setShowPublish] = useState(false);
-  const [imageUrls, setImageUrls] = useState([]);
-  const [videoUrls, setVideoUrls] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]);
+  const [videoFiles, setVideoFiles] = useState([]);
 
   return (
     <div className="scan-result animate-fadeIn">
@@ -239,10 +265,10 @@ function ScanResult({ item, onReset }) {
       {/* Media */}
       <MediaSection
         item={item}
-        imageUrls={imageUrls}
-        onImageUrlsChange={setImageUrls}
-        videoUrls={videoUrls}
-        onVideoUrlsChange={setVideoUrls}
+        imageFiles={imageFiles}
+        onImageFilesChange={setImageFiles}
+        videoFiles={videoFiles}
+        onVideoFilesChange={setVideoFiles}
       />
 
       {/* Shopify toggle */}
@@ -253,7 +279,7 @@ function ScanResult({ item, onReset }) {
         </button>
       </div>
 
-      {showPublish && <ShopifyPublishForm key={item.mco} item={item} imageUrls={imageUrls} />}
+      {showPublish && <ShopifyPublishForm key={item.mco} item={item} imageFiles={imageFiles} />}
     </div>
   );
 }
