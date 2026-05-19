@@ -18,9 +18,6 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (token) router.replace('/dashboard');
-  }, [token, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -1,5 +1,6 @@
 import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
+import AuthGate from '../components/AuthGate';
 import { Inter } from 'next/font/google';
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,7 +24,9 @@ export default function RootLayout({ children }) {
         <Providers>
           <AuthProvider>
             <TooltipProvider>
-              {children}
+              <AuthGate>
+                {children}
+              </AuthGate>
               <Toaster position="top-right" richColors />
             </TooltipProvider>
           </AuthProvider>

@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     try {
@@ -19,6 +20,7 @@ export function AuthProvider({ children }) {
       setUser(null);
     }
     setToken(localStorage.getItem('kg_token'));
+    setIsLoading(false);
   }, []);
 
   const login = (newToken, userData) => {
@@ -37,7 +39,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
