@@ -546,11 +546,6 @@ function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
               {isListed && replaceImages ? ' will replace Shopify images on update' : ' will be attached on publish'}
             </span>
           </div>
-        ) : shopifyLoading ? (
-          <div className="media-used-note text-muted-foreground">
-            <Loader2 size={12} className="animate-spin shrink-0" />
-            <span>Checking Shopify images…</span>
-          </div>
         ) : shopifyImageCount > 0 ? (
           <div className="media-used-note">
             <ImageIcon size={12} />
