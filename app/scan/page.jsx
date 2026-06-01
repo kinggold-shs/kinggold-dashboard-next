@@ -18,8 +18,34 @@ import {
 import {
   ScanBarcode, RotateCcw, Package, ShoppingBag,
   ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown,
-  CheckCircle2, AlertCircle, Loader2, Plus, X, ImageIcon, Film, Trash2,
+  CheckCircle2, AlertCircle, Loader2, Plus, X, ImageIcon, Film, Trash2, RefreshCw,
 } from 'lucide-react';
+
+async function parseApiJson(res) {
+  const text = await res.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
+function urlPathKey(url) {
+  if (!url) return '';
+  try {
+    const p = new URL(url).pathname;
+    return p.split('/').filter(Boolean).pop() || p;
+  } catch {
+    return String(url).split('/').pop() || String(url);
+  }
+}
+
+function mediaUrlOnShopify(src, shopifyImages) {
+  const key = urlPathKey(src);
+  if (!key) return false;
+  return shopifyImages.some(img => urlPathKey(img.url) === key || img.url === src);
+}
 
 const DASH = '—';
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
@@ -71,6 +97,8 @@ function mapMediaFromItem(item) {
 function MediaSection({ item, onMediaChange, onUploadingChange, shopifyImageCount = 0 }) {
   const imgInputRef = useRef(null);
   const vidInputRef = useRef(null);
+  const replaceInputRef = useRef(null);
+  const replaceTargetRef = useRef(null);
   const [goldPhotoUrl, setGoldPhotoUrl] = useState(() => proxiedMediaUrl(item.gold_photo_url));
   const [goldPhotoError, setGoldPhotoError] = useState(false);
   const [goldPhotoRetry, setGoldPhotoRetry] = useState(0);
@@ -134,6 +162,38 @@ function MediaSection({ item, onMediaChange, onUploadingChange, shopifyImageCoun
     e.target.value = '';
   };
 
+  const replaceFile = (f) => {
+    if (f.media_type === 'video') return;
+    replaceTargetRef.current = f;
+    replaceInputRef.current?.click();
+  };
+
+  const handleReplaceSelect = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const target = replaceTargetRef.current;
+    replaceTargetRef.current = null;
+    if (!file || !target) return;
+    const oldId = target.id;
+    if (oldId) {
+      setMediaError('');
+      setFiles(prev => prev.map(x => x.id === oldId ? { ...x, status: 'uploading' } : x));
+      try {
+        await fn6Api.deleteMedia(oldId);
+      } catch (err) {
+        const status = err?.response?.status;
+        if (status === 401) setMediaError('Login required to replace media.');
+        else setMediaError('Could not remove old file before replace.');
+        setFiles(prev => prev.map(x => x.id === oldId ? { ...x, status: 'saved' } : x));
+        return;
+      }
+      setFiles(prev => prev.filter(x => x.id !== oldId));
+    } else {
+      setFiles(prev => prev.filter(x => x._tempId !== target._tempId));
+    }
+    await uploadFile(file, 'image');
+  };
+
   const removeFile = async (f) => {
     if (f.id) {
       if (!window.confirm('Delete this file from the item?')) return;
@@ -161,6 +221,7 @@ function MediaSection({ item, onMediaChange, onUploadingChange, shopifyImageCoun
     <div className="media-section">
       <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImgSelect} />
       <input ref={vidInputRef} type="file" accept="video/*" multiple className="hidden" onChange={handleVidSelect} />
+      <input ref={replaceInputRef} type="file" accept="image/*" className="hidden" onChange={handleReplaceSelect} />
 
       <div className="media-section-title">
         <ImageIcon size={14} />
@@ -237,9 +298,28 @@ function MediaSection({ item, onMediaChange, onUploadingChange, shopifyImageCoun
             )}
             {f.media_type === 'video' && <div className="media-video-badge"><Film size={10} /></div>}
             {f.status !== 'uploading' && (
-              <button type="button" className="media-thumb-remove" onClick={() => removeFile(f)} aria-label="Remove">
-                <X size={10} />
-              </button>
+              <>
+                {f.media_type === 'image' && (
+                  <button
+                    type="button"
+                    className="media-thumb-replace"
+                    onClick={() => replaceFile(f)}
+                    aria-label="Replace"
+                    title="Replace"
+                  >
+                    <RefreshCw size={10} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="media-thumb-remove"
+                  onClick={() => removeFile(f)}
+                  aria-label="Delete"
+                  title="Delete"
+                >
+                  <X size={10} />
+                </button>
+              </>
             )}
           </div>
         ))}
@@ -258,7 +338,7 @@ function MediaSection({ item, onMediaChange, onUploadingChange, shopifyImageCoun
 }
 
 // ── Shopify Publish Form ──────────────────────────────────────────────────────
-function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
+function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange, onMediaChange }) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
   const [price, setPrice] = useState(item.price ? String(Math.round(Number(item.price))) : '');
@@ -278,12 +358,34 @@ function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [imageActionBusy, setImageActionBusy] = useState(false);
+  const [confirmDeleteImageId, setConfirmDeleteImageId] = useState(null);
 
   const imageUrls = useMemo(() => getItemImageUrls(item), [item]);
   const mediaImageCount = imageUrls.length;
   const shopifyImageCount = shopifyImages.length;
   const isListed = Boolean(productId);
-  const busy = saving || deleting || mediaBusy;
+  const mediaNotOnShopify = useMemo(
+    () => imageUrls.filter(src => !mediaUrlOnShopify(src, shopifyImages)),
+    [imageUrls, shopifyImages],
+  );
+  const busy = saving || deleting || mediaBusy || imageActionBusy;
+
+  const resetToNotListed = useCallback(() => {
+    setProductId(null);
+    setVariantId(null);
+    setShopUrl(null);
+    setShopifyImages([]);
+    onShopifyImagesChange?.(0);
+    setTitle(item.idis || `Gold Item ${item.mco}`);
+    setProductType('Ring');
+    setPrice(item.price ? String(Math.round(Number(item.price))) : '');
+    setStatus('active');
+    setDescription(buildDefaultDescription(item));
+    setSpec(buildDefaultSpec(item));
+    setReplaceImages(getItemImageUrls(item).length > 0);
+    setConfirmDeleteImageId(null);
+  }, [item, onShopifyImagesChange]);
 
   const loadShopify = useCallback(async () => {
     setShopifyLoading(true);
@@ -367,7 +469,7 @@ function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
           images: imageUrls.map(src => ({ src })),
         }),
       });
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to publish');
       setSuccessMsg('Published to Shopify');
       setShopUrl(data.shopUrl || null);
@@ -399,7 +501,7 @@ function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
           ...(replaceImages ? { images: imageUrls.map(src => ({ src })) } : {}),
         }),
       });
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to update');
       setSuccessMsg('Shopify product updated');
       await loadShopify();
@@ -412,19 +514,82 @@ function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
 
   const handleDelete = async () => {
     if (!productId) return;
+    const id = String(productId);
     setDeleting(true);
     setPubError('');
+    setSuccessMsg('');
     try {
-      const res = await fetch(`/api/shopify/products/${productId}`, { method: 'DELETE' });
-      const data = await res.json();
+      const res = await fetch(`/api/shopify/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error || 'Failed to delete');
+      resetToNotListed();
       setSuccessMsg('Removed from Shopify');
       setConfirmDelete(false);
-      await loadShopify();
+      try {
+        await loadShopify();
+      } catch {
+        // UI already reset; lookup refresh is best-effort
+      }
     } catch (err) {
-      setPubError(err.message);
+      setPubError(err.message || 'Failed to delete');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleDeleteShopifyImage = async (imageId) => {
+    if (!productId || !imageId) return;
+    if (!window.confirm('Remove this image from the Shopify product?')) return;
+    setImageActionBusy(true);
+    setPubError('');
+    setSuccessMsg('');
+    try {
+      const res = await fetch(
+        `/api/shopify/products/${encodeURIComponent(String(productId))}/images/${encodeURIComponent(String(imageId))}`,
+        { method: 'DELETE' },
+      );
+      const data = await parseApiJson(res);
+      if (!res.ok) throw new Error(data.error || 'Failed to delete image');
+      setConfirmDeleteImageId(null);
+      setSuccessMsg('Shopify image removed');
+      await loadShopify();
+      onMediaChange?.();
+    } catch (err) {
+      setPubError(err.message || 'Failed to delete image');
+    } finally {
+      setImageActionBusy(false);
+    }
+  };
+
+  const handleAddFromMedia = async () => {
+    if (!productId || mediaNotOnShopify.length === 0) return;
+    setImageActionBusy(true);
+    setPubError('');
+    setSuccessMsg('');
+    try {
+      for (const src of mediaNotOnShopify) {
+        const res = await fetch(
+          `/api/shopify/products/${encodeURIComponent(String(productId))}/images`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ src }),
+          },
+        );
+        const data = await parseApiJson(res);
+        if (!res.ok) throw new Error(data.error || 'Failed to add image');
+      }
+      setSuccessMsg(
+        mediaNotOnShopify.length === 1
+          ? 'Added 1 image from Media'
+          : `Added ${mediaNotOnShopify.length} images from Media`,
+      );
+      await loadShopify();
+      onMediaChange?.();
+    } catch (err) {
+      setPubError(err.message || 'Failed to add images');
+    } finally {
+      setImageActionBusy(false);
     }
   };
 
@@ -510,27 +675,92 @@ function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
             placeholder="Gold price, weight, karat, SKU…"
           />
         </div>
-        {shopifyImageCount > 0 && (
+        {isListed && shopifyImageCount > 0 && (
           <div className="shopify-images-preview">
-            <span className="text-xs text-muted-foreground font-medium">On Shopify ({shopifyImageCount})</span>
+            <span className="text-xs text-muted-foreground font-medium">Shopify photos ({shopifyImageCount})</span>
             <div className="media-preview-row">
               {shopifyImages.map(img => (
-                <div key={img.id || img.url} className="media-thumb" title="Shopify image">
+                <div key={img.id || img.url} className="media-thumb media-thumb-new" title="Shopify image">
                   <img src={img.url} alt="" />
+                  {img.id && (
+                    confirmDeleteImageId === img.id ? (
+                      <div className="media-thumb-confirm">
+                        <button
+                          type="button"
+                          className="text-[10px] text-white underline"
+                          onClick={() => handleDeleteShopifyImage(img.id)}
+                          disabled={imageActionBusy}
+                        >
+                          {imageActionBusy ? '…' : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[10px] text-white/80 underline"
+                          onClick={() => setConfirmDeleteImageId(null)}
+                          disabled={imageActionBusy}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="media-thumb-remove"
+                        onClick={() => setConfirmDeleteImageId(img.id)}
+                        aria-label="Delete"
+                        title="Delete"
+                        disabled={imageActionBusy}
+                      >
+                        <X size={10} />
+                      </button>
+                    )
+                  )}
                 </div>
               ))}
             </div>
+            {mediaImageCount > 0 && mediaNotOnShopify.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 h-8 text-xs"
+                onClick={handleAddFromMedia}
+                disabled={busy}
+              >
+                {imageActionBusy
+                  ? <><Loader2 size={12} className="animate-spin mr-1" />Adding…</>
+                  : <>Upload from Media ({mediaNotOnShopify.length})</>
+                }
+              </Button>
+            )}
           </div>
         )}
+        {isListed && shopifyImageCount === 0 && mediaNotOnShopify.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={handleAddFromMedia}
+            disabled={busy}
+          >
+            {imageActionBusy
+              ? <><Loader2 size={12} className="animate-spin mr-1" />Adding…</>
+              : <>Upload from Media ({mediaNotOnShopify.length})</>
+            }
+          </Button>
+        )}
         {isListed && mediaImageCount > 0 && (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
               checked={replaceImages}
               onChange={e => setReplaceImages(e.target.checked)}
-              className="rounded"
+              className="rounded mt-0.5"
             />
-            Replace Shopify images with Media ({mediaImageCount})
+            <span>
+              Replace all Shopify photos with Media on update ({mediaImageCount} VPS image{mediaImageCount !== 1 ? 's' : ''})
+            </span>
           </label>
         )}
         {shopifyLoading ? (
@@ -550,8 +780,8 @@ function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
           <div className="media-used-note">
             <ImageIcon size={12} />
             <span>
-              {shopifyImageCount} image{shopifyImageCount !== 1 ? 's' : ''} already on Shopify
-              {isListed ? ' — add Media above to replace, or update without checking replace' : ''}
+              {shopifyImageCount} image{shopifyImageCount !== 1 ? 's' : ''} on Shopify
+              {isListed ? ' — delete individually above, add from Media, or use replace-all on update' : ''}
             </span>
           </div>
         ) : (
@@ -688,6 +918,7 @@ function ScanResult({ item, onRefreshItem }) {
           item={item}
           mediaBusy={mediaBusy}
           onShopifyImagesChange={setShopifyImageCount}
+          onMediaChange={() => onRefreshItem?.(item.mco)}
         />
       )}
     </div>
