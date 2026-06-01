@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import DashboardShell from '../../components/DashboardShell';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_LABELS, TYPE_COLORS } from '../../constants/fn6';
+import { buildDefaultSpec, specToBodyHtml, bodyHtmlToSpec } from '../../lib/fn6Spec';
+import { resolveMediaUrl, getItemImageUrls } from '../../lib/mediaUrl';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -46,36 +48,64 @@ function Field({ label, value }) {
   );
 }
 
+function mapMediaFromItem(item) {
+  return (item.media_files || []).map(m => ({
+    id: m.id,
+    url: resolveMediaUrl(m.url),
+    media_type: m.media_type,
+    status: 'saved',
+    preview: resolveMediaUrl(m.url),
+    loadError: false,
+  }));
+}
+
 // ── Media Section ─────────────────────────────────────────────────────────────
-function MediaSection({ item }) {
+function MediaSection({ item, onMediaChange, onUploadingChange }) {
   const imgInputRef = useRef(null);
   const vidInputRef = useRef(null);
+  const [goldPhotoUrl, setGoldPhotoUrl] = useState(() => resolveMediaUrl(item.gold_photo_url));
+  const [goldPhotoError, setGoldPhotoError] = useState(false);
+  const [goldPhotoRetry, setGoldPhotoRetry] = useState(0);
+  const [files, setFiles] = useState(() => mapMediaFromItem(item));
+  const [mediaError, setMediaError] = useState('');
 
-  // Each entry: { id, url, media_type, status: 'saved'|'uploading'|'error', preview, _tempId }
-  const [files, setFiles] = useState(() =>
-    (item.media_files || []).map(m => ({
-      id: m.id, url: m.url, media_type: m.media_type,
-      status: 'saved', preview: m.url,
-    }))
-  );
+  useEffect(() => {
+    setGoldPhotoUrl(resolveMediaUrl(item.gold_photo_url));
+    setGoldPhotoError(false);
+    setGoldPhotoRetry(0);
+    setFiles(mapMediaFromItem(item));
+    setMediaError('');
+  }, [item.mco, item.gold_photo_url, item.media_files]);
 
   const uploading = files.some(f => f.status === 'uploading');
   const hasError = files.some(f => f.status === 'error');
-  const allSaved = files.length > 0 && !uploading && !hasError;
+
+  useEffect(() => {
+    onUploadingChange?.(uploading);
+  }, [uploading, onUploadingChange]);
 
   const uploadFile = async (file, mediaType) => {
     const tempId = `${Date.now()}-${Math.random()}`;
     const preview = URL.createObjectURL(file);
-    setFiles(prev => [...prev, { _tempId: tempId, preview, media_type: mediaType, status: 'uploading' }]);
+    setMediaError('');
+    setFiles(prev => [...prev, { _tempId: tempId, preview, media_type: mediaType, status: 'uploading', loadError: false }]);
     try {
       const res = await fn6Api.uploadMedia(item.mco, file, mediaType);
       const { id, url } = res.data;
+      const resolved = resolveMediaUrl(url);
       setFiles(prev => prev.map(f =>
-        f._tempId === tempId ? { id, url, media_type: mediaType, status: 'saved', preview: url } : f
+        f._tempId === tempId
+          ? { id, url: resolved, media_type: mediaType, status: 'saved', preview: resolved, loadError: false }
+          : f,
       ));
-    } catch {
+      onMediaChange?.();
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 401) setMediaError('Login required to upload media.');
+      else if (status === 404) setMediaError('Item not found for media upload.');
+      else setMediaError(err?.response?.data?.error || 'Upload failed.');
       setFiles(prev => prev.map(f =>
-        f._tempId === tempId ? { ...f, status: 'error' } : f
+        f._tempId === tempId ? { ...f, status: 'error' } : f,
       ));
     }
   };
@@ -91,11 +121,17 @@ function MediaSection({ item }) {
 
   const removeFile = async (f) => {
     if (f.id) {
+      if (!window.confirm('Delete this file from the item?')) return;
+      setMediaError('');
       setFiles(prev => prev.map(x => x.id === f.id ? { ...x, status: 'uploading' } : x));
       try {
         await fn6Api.deleteMedia(f.id);
         setFiles(prev => prev.filter(x => x.id !== f.id));
-      } catch {
+        onMediaChange?.();
+      } catch (err) {
+        const status = err?.response?.status;
+        if (status === 401) setMediaError('Login required to delete media.');
+        else setMediaError('Delete failed.');
         setFiles(prev => prev.map(x => x.id === f.id ? { ...x, status: 'error' } : x));
       }
     } else {
@@ -103,7 +139,8 @@ function MediaSection({ item }) {
     }
   };
 
-  const hasMedia = item.gold_photo_url || files.length > 0;
+  const hasMedia = goldPhotoUrl || files.length > 0;
+  const allSaved = files.length > 0 && !uploading && !hasError;
 
   return (
     <div className="media-section">
@@ -120,36 +157,78 @@ function MediaSection({ item }) {
         </div>
       </div>
 
-      {hasMedia && (
-        <div className="media-preview-row">
-          {item.gold_photo_url && (
-            <div className="media-thumb" title="Main photo (VPS)">
-              <img src={item.gold_photo_url} alt="" onError={e => { e.target.parentElement.style.display = 'none'; }} />
-            </div>
-          )}
-          {files.map((f, i) => (
-            <div key={f.id ?? f._tempId} className={`media-thumb media-thumb-new${f.status === 'uploading' ? ' media-thumb-loading' : ''}`}>
-              {f.media_type === 'video'
-                ? <video src={f.preview} className="w-full h-full object-cover" />
-                : <img src={f.preview} alt="" onError={e => { e.target.style.opacity = '0.3'; }} />
-              }
-              {f.status === 'uploading' && (
-                <div className="media-thumb-overlay"><Loader2 size={16} className="animate-spin text-white" /></div>
-              )}
-              {f.media_type === 'video' && <div className="media-video-badge"><Film size={10} /></div>}
-              {f.status !== 'uploading' && (
-                <button className="media-thumb-remove" onClick={() => removeFile(f)}><X size={10} /></button>
-              )}
-            </div>
-          ))}
-        </div>
+      {mediaError && (
+        <p className="text-xs text-destructive px-1">{mediaError}</p>
       )}
 
+      <div className="media-preview-row">
+        {goldPhotoUrl && (
+          <div className="media-thumb" title="Main photo (VPS)">
+            {!goldPhotoError ? (
+              <img
+                key={`gold-${goldPhotoRetry}`}
+                src={goldPhotoUrl}
+                alt=""
+                onError={() => setGoldPhotoError(true)}
+              />
+            ) : (
+              <div className="media-thumb-broken">
+                <AlertCircle size={14} />
+                <button
+                  type="button"
+                  className="text-[10px] underline mt-1"
+                  onClick={() => { setGoldPhotoError(false); setGoldPhotoRetry(r => r + 1); }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {files.map((f) => (
+          <div key={f.id ?? f._tempId} className={`media-thumb media-thumb-new${f.status === 'uploading' ? ' media-thumb-loading' : ''}`}>
+            {f.media_type === 'video' ? (
+              <video src={f.preview} className="w-full h-full object-cover" />
+            ) : f.loadError ? (
+              <div className="media-thumb-broken">
+                <AlertCircle size={14} />
+                <button
+                  type="button"
+                  className="text-[10px] underline mt-1"
+                  onClick={() => setFiles(prev => prev.map(x =>
+                    (x.id ?? x._tempId) === (f.id ?? f._tempId) ? { ...x, loadError: false, preview: x.url || x.preview } : x,
+                  ))}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <img
+                src={f.preview}
+                alt=""
+                onError={() => setFiles(prev => prev.map(x =>
+                  (x.id ?? x._tempId) === (f.id ?? f._tempId) ? { ...x, loadError: true } : x,
+                ))}
+              />
+            )}
+            {f.status === 'uploading' && (
+              <div className="media-thumb-overlay"><Loader2 size={16} className="animate-spin text-white" /></div>
+            )}
+            {f.media_type === 'video' && <div className="media-video-badge"><Film size={10} /></div>}
+            {f.status !== 'uploading' && (
+              <button type="button" className="media-thumb-remove" onClick={() => removeFile(f)} aria-label="Remove">
+                <X size={10} />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
       <div className="media-add-row">
-        <button className="add-url-btn" onClick={() => imgInputRef.current?.click()}>
+        <button type="button" className="add-url-btn" onClick={() => imgInputRef.current?.click()}>
           <Plus size={12} /><ImageIcon size={12} /> Add image
         </button>
-        <button className="add-url-btn" onClick={() => vidInputRef.current?.click()}>
+        <button type="button" className="add-url-btn" onClick={() => vidInputRef.current?.click()}>
           <Plus size={12} /><Film size={12} /> Add video
         </button>
       </div>
@@ -157,78 +236,150 @@ function MediaSection({ item }) {
   );
 }
 
-function toBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 // ── Shopify Publish Form ──────────────────────────────────────────────────────
-function ShopifyPublishForm({ item }) {
+function ShopifyPublishForm({ item, mediaBusy }) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
   const [price, setPrice] = useState(item.price ? String(Math.round(Number(item.price))) : '');
-  const [publishing, setPublishing] = useState(false);
-  const [success, setSuccess] = useState(null);
+  const [status, setStatus] = useState('active');
+  const [spec, setSpec] = useState(() => buildDefaultSpec(item));
+  const [replaceImages, setReplaceImages] = useState(true);
+
+  const [shopifyLoading, setShopifyLoading] = useState(true);
+  const [productId, setProductId] = useState(null);
+  const [variantId, setVariantId] = useState(null);
+  const [shopUrl, setShopUrl] = useState(null);
+
+  const [saving, setSaving] = useState(false);
   const [pubError, setPubError] = useState('');
-  const [publishedId, setPublishedId] = useState(null);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [deleted, setDeleted] = useState(false);
 
-  const savedMediaUrls = [
-    ...(item.gold_photo_url ? [item.gold_photo_url] : []),
-    ...(item.media_files || []).filter(m => m.media_type === 'image').map(m => m.url),
-  ].filter(Boolean);
-  const totalImages = savedMediaUrls.length;
+  const imageUrls = useMemo(() => getItemImageUrls(item), [item]);
+  const totalImages = imageUrls.length;
+  const isListed = Boolean(productId);
+  const busy = saving || deleting || mediaBusy;
 
-  const bodyHtml = [
-    `<p><strong>Karat:</strong> ${TYPE_LABELS[item.co] || `${item.co}K`}</p>`,
-    item.go_cr != null ? `<p><strong>Weight:</strong> ${Number(item.go_cr).toFixed(3)}g</p>` : '',
-    `<p><strong>SKU / Code:</strong> ${item.mco}</p>`,
-    item.idis ? `<p>${item.idis}</p>` : '',
-  ].filter(Boolean).join('\n');
-
-  const handlePublish = async () => {
-    setPublishing(true);
-    setSuccess(null);
+  const loadShopify = useCallback(async () => {
+    setShopifyLoading(true);
     setPubError('');
     try {
-      // All saved images as src URLs (VPS photo + uploaded media)
-      const images = savedMediaUrls.map(url => ({ src: url }));
+      const res = await fetch(`/api/shopify/products/by-sku?sku=${encodeURIComponent(item.mco)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to check Shopify');
+      if (data.found) {
+        setProductId(data.productId);
+        setVariantId(data.variantId);
+        setTitle(data.title || item.idis || `Gold Item ${item.mco}`);
+        setProductType(data.product_type || 'Ring');
+        setPrice(
+          data.price != null
+            ? String(Math.round(Number(data.price)))
+            : (item.price ? String(Math.round(Number(item.price))) : ''),
+        );
+        setStatus(data.status || 'active');
+        setSpec(bodyHtmlToSpec(data.body_html) || buildDefaultSpec(item));
+        setShopUrl(data.shopUrl);
+      } else {
+        setProductId(null);
+        setVariantId(null);
+        setShopUrl(null);
+        setTitle(item.idis || `Gold Item ${item.mco}`);
+        setProductType('Ring');
+        setPrice(item.price ? String(Math.round(Number(item.price))) : '');
+        setStatus('active');
+        setSpec(buildDefaultSpec(item));
+      }
+    } catch (err) {
+      setPubError(err.message || 'Could not load Shopify status');
+    } finally {
+      setShopifyLoading(false);
+    }
+  }, [item]);
 
+  useEffect(() => {
+    loadShopify();
+  }, [loadShopify]);
+
+  const buildPayload = () => ({
+    title,
+    body_html: specToBodyHtml(spec),
+    product_type: productType,
+    price,
+    status,
+    sku: String(item.mco),
+    images: replaceImages ? imageUrls.map(src => ({ src })) : undefined,
+  });
+
+  const handlePublish = async () => {
+    setSaving(true);
+    setPubError('');
+    setSuccessMsg('');
+    try {
+      const payload = buildPayload();
       const res = await fetch('/api/shopify/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title, body_html: bodyHtml, product_type: productType,
-          price, sku: String(item.mco), images,
+          ...payload,
+          images: imageUrls.map(src => ({ src })),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to publish');
-      setSuccess(data.shopUrl || 'Published successfully');
-      setPublishedId(data.product?.id || null);
+      setSuccessMsg('Published to Shopify');
+      setShopUrl(data.shopUrl || null);
+      await loadShopify();
     } catch (err) {
       setPubError(err.message || 'Failed to publish');
     } finally {
-      setPublishing(false);
+      setSaving(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!productId) return;
+    setSaving(true);
+    setPubError('');
+    setSuccessMsg('');
+    try {
+      const payload = buildPayload();
+      const res = await fetch(`/api/shopify/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: payload.title,
+          body_html: payload.body_html,
+          product_type: payload.product_type,
+          price: payload.price,
+          status: payload.status,
+          variant_id: variantId,
+          ...(replaceImages ? { images: imageUrls.map(src => ({ src })) } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update');
+      setSuccessMsg('Shopify product updated');
+      await loadShopify();
+    } catch (err) {
+      setPubError(err.message || 'Failed to update');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!publishedId) return;
+    if (!productId) return;
     setDeleting(true);
     setPubError('');
     try {
-      const res = await fetch(`/api/shopify/products/${publishedId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/shopify/products/${productId}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete');
-      setDeleted(true);
-      setSuccess(null);
-      setPublishedId(null);
+      setSuccessMsg('Removed from Shopify');
+      setConfirmDelete(false);
+      await loadShopify();
     } catch (err) {
       setPubError(err.message);
     } finally {
@@ -241,6 +392,17 @@ function ShopifyPublishForm({ item }) {
       <div className="shopify-form-header">
         <ShoppingBag size={15} />
         <span>Publish to Shopify</span>
+        {shopifyLoading ? (
+          <span className="shopify-form-status-pill loading">
+            <Loader2 size={11} className="animate-spin" /> Checking…
+          </span>
+        ) : isListed ? (
+          <span className={`shopify-form-status-pill ${status === 'active' ? 'active' : 'draft'}`}>
+            {status}
+          </span>
+        ) : (
+          <span className="shopify-form-status-pill draft">Not listed</span>
+        )}
       </div>
       <div className="shopify-form-body">
         <div className="form-row">
@@ -257,22 +419,67 @@ function ShopifyPublishForm({ item }) {
           <label className="form-label">Price (EGP)</label>
           <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
         </div>
-        {totalImages > 0 && (
+        {isListed && (
+          <div className="form-row">
+            <label className="form-label">Status</label>
+            <select value={status} onChange={e => setStatus(e.target.value)} className="form-select">
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+        )}
+        <div className="form-row">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className="form-label mb-0">Spec</label>
+            <button
+              type="button"
+              className="text-xs text-gold-600 hover:underline"
+              onClick={() => setSpec(buildDefaultSpec(item))}
+            >
+              Reset from item
+            </button>
+          </div>
+          <textarea
+            value={spec}
+            onChange={e => setSpec(e.target.value)}
+            className="form-textarea font-mono text-xs"
+            rows={8}
+            placeholder="Product specifications…"
+          />
+        </div>
+        {isListed && (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={replaceImages}
+              onChange={e => setReplaceImages(e.target.checked)}
+              className="rounded"
+            />
+            Replace Shopify images with Media ({totalImages})
+          </label>
+        )}
+        {totalImages > 0 ? (
           <div className="media-used-note">
             <ImageIcon size={12} />
             <span>{totalImages} image{totalImages !== 1 ? 's' : ''} from Media will be attached</span>
           </div>
-        )}
-        {success && (
-          <div className="pub-success">
-            <CheckCircle2 size={14} className="shrink-0" />
-            <span>Published! <a href={success} target="_blank" rel="noopener noreferrer" className="underline font-medium">View on Shopify</a></span>
+        ) : (
+          <div className="media-used-note text-amber-700">
+            <AlertCircle size={12} />
+            <span>No images attached — product will publish without photos</span>
           </div>
         )}
-        {deleted && (
-          <div className="pub-error" style={{ borderColor: 'var(--muted)', color: 'var(--muted-foreground)' }}>
-            <X size={14} className="shrink-0" />
-            <span>Removed from Shopify</span>
+        {shopUrl && (
+          <p className="text-xs">
+            <a href={shopUrl} target="_blank" rel="noopener noreferrer" className="text-gold-600 underline">
+              View on Shopify
+            </a>
+          </p>
+        )}
+        {successMsg && (
+          <div className="pub-success">
+            <CheckCircle2 size={14} className="shrink-0" />
+            <span>{successMsg}</span>
           </div>
         )}
         {pubError && (
@@ -281,30 +488,49 @@ function ShopifyPublishForm({ item }) {
             <span>{pubError}</span>
           </div>
         )}
-        {!publishedId ? (
-          <Button onClick={handlePublish} disabled={publishing || !title.trim() || !price || deleted} className="w-full">
-            {publishing
-              ? <><Loader2 size={14} className="animate-spin mr-2" />Publishing…</>
-              : <><ShoppingBag size={14} className="mr-2" />Publish to Shopify</>
-            }
-          </Button>
-        ) : (
-          <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="w-full">
-            {deleting
-              ? <><Loader2 size={14} className="animate-spin mr-2" />Removing…</>
-              : <><Trash2 size={14} className="mr-2" />Remove from Shopify</>
-            }
-          </Button>
-        )}
+        <div className="flex flex-col gap-2">
+          {isListed ? (
+            <>
+              <Button onClick={handleUpdate} disabled={busy || !title.trim() || !price} className="w-full">
+                {saving
+                  ? <><Loader2 size={14} className="animate-spin mr-2" />Updating…</>
+                  : <><ShoppingBag size={14} className="mr-2" />Update on Shopify</>
+                }
+              </Button>
+              {confirmDelete ? (
+                <div className="flex gap-2">
+                  <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="flex-1">
+                    {deleting ? <Loader2 size={14} className="animate-spin" /> : 'Confirm remove'}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={() => setConfirmDelete(true)} disabled={busy} variant="outline" className="w-full text-destructive">
+                  <Trash2 size={14} className="mr-2" />Remove from Shopify
+                </Button>
+              )}
+            </>
+          ) : (
+            <Button onClick={handlePublish} disabled={busy || !title.trim() || !price} className="w-full">
+              {saving
+                ? <><Loader2 size={14} className="animate-spin mr-2" />Publishing…</>
+                : <><ShoppingBag size={14} className="mr-2" />Publish to Shopify</>
+              }
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 // ── Scan Result Card ──────────────────────────────────────────────────────────
-function ScanResult({ item, onReset }) {
+function ScanResult({ item, onRefreshItem }) {
   const typeColor = TYPE_COLORS[item.co] || 'oklch(55% 0 0)';
   const [showPublish, setShowPublish] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
 
   return (
     <div className="scan-result animate-fadeIn">
@@ -330,13 +556,16 @@ function ScanResult({ item, onReset }) {
         <Field label="Total Weight" value={item.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH} />
         <Field label="Total Price" value={item.price != null ? formatCurrency(item.price) : DASH} />
         <Field label="Quantity" value={item.qt} />
-        <Field label="Mfg / g" value={item.sal_pr && item.sal_pr !== '0' ? item.sal_pr : DASH} />
         {item.prc > 0 && <Field label="Extra Price (EGP)" value={formatCurrency(item.prc)} />}
         {item.prcus > 0 && <Field label="Extra Price (USD)" value={`$${Number(item.prcus).toFixed(2)}`} />}
       </div>
 
       {/* Media */}
-      <MediaSection item={item} />
+      <MediaSection
+        item={item}
+        onMediaChange={() => onRefreshItem?.(item.mco)}
+        onUploadingChange={setMediaBusy}
+      />
 
       {/* Shopify toggle */}
       <div className="scan-result-actions">
@@ -346,7 +575,7 @@ function ScanResult({ item, onReset }) {
         </button>
       </div>
 
-      {showPublish && <ShopifyPublishForm key={item.mco} item={item} />}
+      {showPublish && <ShopifyPublishForm key={item.mco} item={item} mediaBusy={mediaBusy} />}
     </div>
   );
 }
@@ -393,6 +622,15 @@ export default function ScanPage() {
     setError('');
     inputRef.current?.focus();
   };
+
+  const refreshItem = useCallback(async (mco) => {
+    try {
+      const res = await fn6Api.getByMco(mco);
+      setResult(res.data);
+    } catch {
+      // keep current result on refresh failure
+    }
+  }, []);
 
   // Stock list
   const listParams = useMemo(() => ({
@@ -487,7 +725,7 @@ export default function ScanPage() {
             </div>
           )}
 
-          {result && !loading && <ScanResult key={result.mco} item={result} onReset={handleReset} />}
+          {result && !loading && <ScanResult key={result.mco} item={result} onRefreshItem={refreshItem} />}
         </div>
 
         {/* ── Stock list ── */}

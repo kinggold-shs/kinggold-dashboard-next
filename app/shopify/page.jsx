@@ -10,6 +10,7 @@ import {
   ShoppingBag, Pencil, Trash2, Check, X, Loader2,
   AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Package,
 } from 'lucide-react';
+import { bodyHtmlToSpec, specToBodyHtml } from '../../lib/fn6Spec';
 
 const PRODUCT_TYPES = ['Ring', 'Necklace', 'Bracelet', 'Earrings', 'Chain', 'Pendant', 'Bangle', 'Other'];
 
@@ -49,18 +50,27 @@ function ProductCard({ product, queryKey, onDeleted }) {
   const [price, setPrice] = useState(product.variants?.[0]?.price || '');
   const [productType, setProductType] = useState(product.product_type || '');
   const [status, setStatus] = useState(product.status || 'active');
+  const [spec, setSpec] = useState(() => bodyHtmlToSpec(product.body_html || ''));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState('');
 
   const image = product.images?.[0]?.src;
   const sku = product.variants?.[0]?.sku;
+  const variantId = product.variants?.[0]?.id;
 
   const handleSave = async () => {
     setSaving(true);
     setErr('');
     try {
-      const updated = await updateProduct(product.id, { title, price, product_type: productType, status });
+      const updated = await updateProduct(product.id, {
+        title,
+        price,
+        product_type: productType,
+        status,
+        body_html: specToBodyHtml(spec),
+        variant_id: variantId,
+      });
       queryClient.setQueryData(queryKey, (old) => {
         if (!old) return old;
         return {
@@ -98,6 +108,7 @@ function ProductCard({ product, queryKey, onDeleted }) {
     setPrice(product.variants?.[0]?.price || '');
     setProductType(product.product_type || '');
     setStatus(product.status || 'active');
+    setSpec(bodyHtmlToSpec(product.body_html || ''));
     setErr('');
     setEditing(false);
   };
@@ -135,6 +146,13 @@ function ProductCard({ product, queryKey, onDeleted }) {
               <option value="">— Type —</option>
               {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
+            <textarea
+              value={spec}
+              onChange={e => setSpec(e.target.value)}
+              className="form-textarea text-xs font-mono"
+              rows={6}
+              placeholder="Product spec / description…"
+            />
             {err && <p className="text-xs text-destructive">{err}</p>}
             <div className="flex gap-2 mt-1">
               <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1 h-7">

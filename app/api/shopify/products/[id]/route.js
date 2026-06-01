@@ -12,8 +12,18 @@ export async function PUT(request, { params }) {
     if (body.body_html !== undefined) update.body_html = body.body_html;
     if (body.product_type !== undefined) update.product_type = body.product_type;
     if (body.status !== undefined) update.status = body.status;
+    if (body.images !== undefined) {
+      update.images = body.images;
+    }
+
     if (body.price !== undefined) {
-      update.variants = [{ price: String(Number(body.price).toFixed(2)) }];
+      const variantPayload = {
+        price: String(Number(body.price).toFixed(2)),
+      };
+      if (body.variant_id != null) {
+        variantPayload.id = Number(body.variant_id);
+      }
+      update.variants = [variantPayload];
     }
 
     const res = await fetch(`https://${domain}/admin/api/2024-10/products/${id}.json`, {
