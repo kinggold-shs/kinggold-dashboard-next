@@ -5,8 +5,10 @@ import { useQuery } from '@tanstack/react-query';
 import DashboardShell from '../../components/DashboardShell';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_LABELS, TYPE_COLORS } from '../../constants/fn6';
-import { buildDefaultSpec, specToBodyHtml, bodyHtmlToSpec } from '../../lib/fn6Spec';
-import { resolveMediaUrl, getItemImageUrls } from '../../lib/mediaUrl';
+import {
+  buildDefaultSpec, buildDefaultDescription, mergeToBodyHtml, splitBodyHtml,
+} from '../../lib/fn6Spec';
+import { resolveMediaUrl, proxiedMediaUrl, getItemImageUrls } from '../../lib/mediaUrl';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -29,6 +31,12 @@ const COLUMNS = [
   { title: 'Price', key: 'price', sortable: true },
 ];
 const PRODUCT_TYPES = ['Ring', 'Necklace', 'Bracelet', 'Earrings', 'Chain', 'Pendant', 'Bangle', 'Other'];
+
+function shopifyLookupUrl(item) {
+  const params = new URLSearchParams({ sku: String(item.mco) });
+  if (item.idis?.trim()) params.set('title', item.idis.trim());
+  return `/api/shopify/products/by-sku?${params}`;
+}
 
 function formatCurrency(v) {
   if (v == null || isNaN(v)) return DASH;
@@ -54,23 +62,23 @@ function mapMediaFromItem(item) {
     url: resolveMediaUrl(m.url),
     media_type: m.media_type,
     status: 'saved',
-    preview: resolveMediaUrl(m.url),
+    preview: proxiedMediaUrl(m.url),
     loadError: false,
   }));
 }
 
 // ── Media Section ─────────────────────────────────────────────────────────────
-function MediaSection({ item, onMediaChange, onUploadingChange }) {
+function MediaSection({ item, onMediaChange, onUploadingChange, shopifyImageCount = 0 }) {
   const imgInputRef = useRef(null);
   const vidInputRef = useRef(null);
-  const [goldPhotoUrl, setGoldPhotoUrl] = useState(() => resolveMediaUrl(item.gold_photo_url));
+  const [goldPhotoUrl, setGoldPhotoUrl] = useState(() => proxiedMediaUrl(item.gold_photo_url));
   const [goldPhotoError, setGoldPhotoError] = useState(false);
   const [goldPhotoRetry, setGoldPhotoRetry] = useState(0);
   const [files, setFiles] = useState(() => mapMediaFromItem(item));
   const [mediaError, setMediaError] = useState('');
 
   useEffect(() => {
-    setGoldPhotoUrl(resolveMediaUrl(item.gold_photo_url));
+    setGoldPhotoUrl(proxiedMediaUrl(item.gold_photo_url));
     setGoldPhotoError(false);
     setGoldPhotoRetry(0);
     setFiles(mapMediaFromItem(item));
@@ -95,7 +103,14 @@ function MediaSection({ item, onMediaChange, onUploadingChange }) {
       const resolved = resolveMediaUrl(url);
       setFiles(prev => prev.map(f =>
         f._tempId === tempId
-          ? { id, url: resolved, media_type: mediaType, status: 'saved', preview: resolved, loadError: false }
+          ? {
+            id,
+            url: resolved,
+            media_type: mediaType,
+            status: 'saved',
+            preview: proxiedMediaUrl(url) || resolved,
+            loadError: false,
+          }
           : f,
       ));
       onMediaChange?.();
@@ -159,6 +174,12 @@ function MediaSection({ item, onMediaChange, onUploadingChange }) {
 
       {mediaError && (
         <p className="text-xs text-destructive px-1">{mediaError}</p>
+      )}
+
+      {shopifyImageCount > 0 && !goldPhotoUrl && files.length === 0 && (
+        <p className="text-xs text-muted-foreground px-1">
+          Photos are on Shopify ({shopifyImageCount}). Upload here to manage VPS copies.
+        </p>
       )}
 
       <div className="media-preview-row">
@@ -237,18 +258,20 @@ function MediaSection({ item, onMediaChange, onUploadingChange }) {
 }
 
 // ── Shopify Publish Form ──────────────────────────────────────────────────────
-function ShopifyPublishForm({ item, mediaBusy }) {
+function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange }) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
   const [price, setPrice] = useState(item.price ? String(Math.round(Number(item.price))) : '');
   const [status, setStatus] = useState('active');
+  const [description, setDescription] = useState(() => buildDefaultDescription(item));
   const [spec, setSpec] = useState(() => buildDefaultSpec(item));
-  const [replaceImages, setReplaceImages] = useState(true);
+  const [replaceImages, setReplaceImages] = useState(false);
 
   const [shopifyLoading, setShopifyLoading] = useState(true);
   const [productId, setProductId] = useState(null);
   const [variantId, setVariantId] = useState(null);
   const [shopUrl, setShopUrl] = useState(null);
+  const [shopifyImages, setShopifyImages] = useState([]);
 
   const [saving, setSaving] = useState(false);
   const [pubError, setPubError] = useState('');
@@ -257,7 +280,8 @@ function ShopifyPublishForm({ item, mediaBusy }) {
   const [deleting, setDeleting] = useState(false);
 
   const imageUrls = useMemo(() => getItemImageUrls(item), [item]);
-  const totalImages = imageUrls.length;
+  const mediaImageCount = imageUrls.length;
+  const shopifyImageCount = shopifyImages.length;
   const isListed = Boolean(productId);
   const busy = saving || deleting || mediaBusy;
 
@@ -265,10 +289,11 @@ function ShopifyPublishForm({ item, mediaBusy }) {
     setShopifyLoading(true);
     setPubError('');
     try {
-      const res = await fetch(`/api/shopify/products/by-sku?sku=${encodeURIComponent(item.mco)}`);
+      const res = await fetch(shopifyLookupUrl(item));
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to check Shopify');
       if (data.found) {
+        const images = data.images || [];
         setProductId(data.productId);
         setVariantId(data.variantId);
         setTitle(data.title || item.idis || `Gold Item ${item.mco}`);
@@ -279,32 +304,48 @@ function ShopifyPublishForm({ item, mediaBusy }) {
             : (item.price ? String(Math.round(Number(item.price))) : ''),
         );
         setStatus(data.status || 'active');
-        setSpec(bodyHtmlToSpec(data.body_html) || buildDefaultSpec(item));
+        const split = splitBodyHtml(data.body_html, item);
+        setDescription(split.description);
+        setSpec(split.spec);
         setShopUrl(data.shopUrl);
+        setShopifyImages(images);
+        onShopifyImagesChange?.(images.length);
+        const vpsCount = getItemImageUrls(item).length;
+        setReplaceImages(vpsCount > 0 && images.length > 0 ? true : vpsCount > 0);
       } else {
         setProductId(null);
         setVariantId(null);
         setShopUrl(null);
+        setShopifyImages([]);
+        onShopifyImagesChange?.(0);
         setTitle(item.idis || `Gold Item ${item.mco}`);
         setProductType('Ring');
         setPrice(item.price ? String(Math.round(Number(item.price))) : '');
         setStatus('active');
+        setDescription(buildDefaultDescription(item));
         setSpec(buildDefaultSpec(item));
+        setReplaceImages(getItemImageUrls(item).length > 0);
       }
     } catch (err) {
       setPubError(err.message || 'Could not load Shopify status');
     } finally {
       setShopifyLoading(false);
     }
-  }, [item]);
+  }, [item, onShopifyImagesChange]);
 
   useEffect(() => {
     loadShopify();
   }, [loadShopify]);
 
+  useEffect(() => {
+    if (mediaImageCount > 0 && shopifyImageCount === 0) {
+      setReplaceImages(true);
+    }
+  }, [mediaImageCount, shopifyImageCount]);
+
   const buildPayload = () => ({
     title,
-    body_html: specToBodyHtml(spec),
+    body_html: mergeToBodyHtml(description, spec),
     product_type: productType,
     price,
     status,
@@ -428,6 +469,28 @@ function ShopifyPublishForm({ item, mediaBusy }) {
             </select>
           </div>
         )}
+        <p className="text-xs text-muted-foreground -mt-1">
+          Description and Spec are combined on the Shopify product page.
+        </p>
+        <div className="form-row">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className="form-label mb-0">Description</label>
+            <button
+              type="button"
+              className="text-xs text-gold-600 hover:underline"
+              onClick={() => setDescription(buildDefaultDescription(item))}
+            >
+              Reset from item
+            </button>
+          </div>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            className="form-textarea text-sm"
+            rows={4}
+            placeholder="Product marketing copy…"
+          />
+        </div>
         <div className="form-row">
           <div className="flex items-center justify-between gap-2 mb-1">
             <label className="form-label mb-0">Spec</label>
@@ -436,7 +499,7 @@ function ShopifyPublishForm({ item, mediaBusy }) {
               className="text-xs text-gold-600 hover:underline"
               onClick={() => setSpec(buildDefaultSpec(item))}
             >
-              Reset from item
+              Reset spec from item
             </button>
           </div>
           <textarea
@@ -444,10 +507,22 @@ function ShopifyPublishForm({ item, mediaBusy }) {
             onChange={e => setSpec(e.target.value)}
             className="form-textarea font-mono text-xs"
             rows={8}
-            placeholder="Product specifications…"
+            placeholder="Gold price, weight, karat, SKU…"
           />
         </div>
-        {isListed && (
+        {shopifyImageCount > 0 && (
+          <div className="shopify-images-preview">
+            <span className="text-xs text-muted-foreground font-medium">On Shopify ({shopifyImageCount})</span>
+            <div className="media-preview-row">
+              {shopifyImages.map(img => (
+                <div key={img.id || img.url} className="media-thumb" title="Shopify image">
+                  <img src={img.url} alt="" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {isListed && mediaImageCount > 0 && (
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
@@ -455,18 +530,39 @@ function ShopifyPublishForm({ item, mediaBusy }) {
               onChange={e => setReplaceImages(e.target.checked)}
               className="rounded"
             />
-            Replace Shopify images with Media ({totalImages})
+            Replace Shopify images with Media ({mediaImageCount})
           </label>
         )}
-        {totalImages > 0 ? (
+        {shopifyLoading ? (
+          <div className="media-used-note">
+            <Loader2 size={12} className="animate-spin shrink-0" />
+            <span>Checking images on Shopify…</span>
+          </div>
+        ) : mediaImageCount > 0 ? (
           <div className="media-used-note">
             <ImageIcon size={12} />
-            <span>{totalImages} image{totalImages !== 1 ? 's' : ''} from Media will be attached</span>
+            <span>
+              {mediaImageCount} image{mediaImageCount !== 1 ? 's' : ''} from Media
+              {isListed && replaceImages ? ' will replace Shopify images on update' : ' will be attached on publish'}
+            </span>
+          </div>
+        ) : shopifyLoading ? (
+          <div className="media-used-note text-muted-foreground">
+            <Loader2 size={12} className="animate-spin shrink-0" />
+            <span>Checking Shopify images…</span>
+          </div>
+        ) : shopifyImageCount > 0 ? (
+          <div className="media-used-note">
+            <ImageIcon size={12} />
+            <span>
+              {shopifyImageCount} image{shopifyImageCount !== 1 ? 's' : ''} already on Shopify
+              {isListed ? ' — add Media above to replace, or update without checking replace' : ''}
+            </span>
           </div>
         ) : (
           <div className="media-used-note text-amber-700">
             <AlertCircle size={12} />
-            <span>No images attached — product will publish without photos</span>
+            <span>No images — publish/update without photos</span>
           </div>
         )}
         {shopUrl && (
@@ -531,6 +627,21 @@ function ScanResult({ item, onRefreshItem }) {
   const typeColor = TYPE_COLORS[item.co] || 'oklch(55% 0 0)';
   const [showPublish, setShowPublish] = useState(false);
   const [mediaBusy, setMediaBusy] = useState(false);
+  const [shopifyImageCount, setShopifyImageCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(shopifyLookupUrl(item))
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setShopifyImageCount(data.found ? (data.images || []).length : 0);
+      })
+      .catch(() => {
+        if (!cancelled) setShopifyImageCount(0);
+      });
+    return () => { cancelled = true; };
+  }, [item.mco]);
 
   return (
     <div className="scan-result animate-fadeIn">
@@ -565,6 +676,7 @@ function ScanResult({ item, onRefreshItem }) {
         item={item}
         onMediaChange={() => onRefreshItem?.(item.mco)}
         onUploadingChange={setMediaBusy}
+        shopifyImageCount={shopifyImageCount}
       />
 
       {/* Shopify toggle */}
@@ -575,7 +687,14 @@ function ScanResult({ item, onRefreshItem }) {
         </button>
       </div>
 
-      {showPublish && <ShopifyPublishForm key={item.mco} item={item} mediaBusy={mediaBusy} />}
+      {showPublish && (
+        <ShopifyPublishForm
+          key={item.mco}
+          item={item}
+          mediaBusy={mediaBusy}
+          onShopifyImagesChange={setShopifyImageCount}
+        />
+      )}
     </div>
   );
 }

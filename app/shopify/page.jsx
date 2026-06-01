@@ -10,7 +10,7 @@ import {
   ShoppingBag, Pencil, Trash2, Check, X, Loader2,
   AlertCircle, ChevronLeft, ChevronRight, ExternalLink, Package,
 } from 'lucide-react';
-import { bodyHtmlToSpec, specToBodyHtml } from '../../lib/fn6Spec';
+import { mergeToBodyHtml, splitBodyHtml } from '../../lib/fn6Spec';
 
 const PRODUCT_TYPES = ['Ring', 'Necklace', 'Bracelet', 'Earrings', 'Chain', 'Pendant', 'Bangle', 'Other'];
 
@@ -50,7 +50,8 @@ function ProductCard({ product, queryKey, onDeleted }) {
   const [price, setPrice] = useState(product.variants?.[0]?.price || '');
   const [productType, setProductType] = useState(product.product_type || '');
   const [status, setStatus] = useState(product.status || 'active');
-  const [spec, setSpec] = useState(() => bodyHtmlToSpec(product.body_html || ''));
+  const [description, setDescription] = useState(() => splitBodyHtml(product.body_html || '').description);
+  const [spec, setSpec] = useState(() => splitBodyHtml(product.body_html || '').spec);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [err, setErr] = useState('');
@@ -68,7 +69,7 @@ function ProductCard({ product, queryKey, onDeleted }) {
         price,
         product_type: productType,
         status,
-        body_html: specToBodyHtml(spec),
+        body_html: mergeToBodyHtml(description, spec),
         variant_id: variantId,
       });
       queryClient.setQueryData(queryKey, (old) => {
@@ -108,7 +109,9 @@ function ProductCard({ product, queryKey, onDeleted }) {
     setPrice(product.variants?.[0]?.price || '');
     setProductType(product.product_type || '');
     setStatus(product.status || 'active');
-    setSpec(bodyHtmlToSpec(product.body_html || ''));
+    const split = splitBodyHtml(product.body_html || '');
+    setDescription(split.description);
+    setSpec(split.spec);
     setErr('');
     setEditing(false);
   };
@@ -147,11 +150,18 @@ function ProductCard({ product, queryKey, onDeleted }) {
               {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              className="form-textarea text-xs"
+              rows={3}
+              placeholder="Description…"
+            />
+            <textarea
               value={spec}
               onChange={e => setSpec(e.target.value)}
               className="form-textarea text-xs font-mono"
-              rows={6}
-              placeholder="Product spec / description…"
+              rows={5}
+              placeholder="Spec (gold price, weight, karat…)…"
             />
             {err && <p className="text-xs text-destructive">{err}</p>}
             <div className="flex gap-2 mt-1">
