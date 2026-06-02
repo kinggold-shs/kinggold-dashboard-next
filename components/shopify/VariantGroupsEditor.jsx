@@ -15,6 +15,12 @@ function variantLabel(v) {
 }
 
 function variantOptions(v) {
+  if (Array.isArray(v.selectedOptions) && v.selectedOptions.length) {
+    return v.selectedOptions
+      .map(o => (o.name && o.value ? `${o.name}: ${o.value}` : o.value || o.name))
+      .filter(Boolean)
+      .join(' / ');
+  }
   return [v.option1, v.option2, v.option3].filter(Boolean).join(' / ');
 }
 
