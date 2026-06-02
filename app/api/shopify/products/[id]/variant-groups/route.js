@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getShopifyToken } from '../../../../../../lib/shopify';
-import { shopifyGraphql } from '../../../../../../lib/shopifyProductLookup';
 import {
   fetchProductVariants,
   fetchVariantCodeGroupsMetafield,
@@ -10,7 +9,7 @@ import {
 } from '../../../../../../lib/variantGroupService';
 
 async function loadProductContext(domain, token, productId) {
-  const product = await fetchProductVariants(domain, token, productId, shopifyGraphql);
+  const product = await fetchProductVariants(domain, token, productId);
   if (!product) {
     return { error: 'Product not found', status: 404 };
   }
