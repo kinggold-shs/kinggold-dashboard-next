@@ -180,11 +180,6 @@ export default function VariantGroupsEditor({ item }) {
 
       {showGroupsSection ? (
         <>
-          <p className="text-sm text-muted-foreground">
-            Main → sub mappings from metafield{' '}
-            <code className="text-xs">custom.variant_code_groups</code> (read-only).
-          </p>
-
           {groups.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No variant groups configured in Shopify.
