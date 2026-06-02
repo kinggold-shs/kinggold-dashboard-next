@@ -39,7 +39,7 @@ export default function ShopifyPage() {
         <Tabs
           value={tab}
           onValueChange={(nextTab) => setRoute(nextTab, nextTab === 'manage' ? sku : '')}
-          className="w-full"
+          className="w-full !flex !flex-col"
         >
           <TabsList>
             <TabsTrigger value="list">Items List</TabsTrigger>
