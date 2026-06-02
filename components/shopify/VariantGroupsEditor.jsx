@@ -14,6 +14,41 @@ function variantLabel(v) {
   return `${v.title || 'Variant'}${sku}`;
 }
 
+function variantOptions(v) {
+  return [v.option1, v.option2, v.option3].filter(Boolean).join(' / ');
+}
+
+function ShopifyVariantsList({ variants }) {
+  if (variants.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No variants on this product in Shopify yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg divide-y bg-muted/10">
+      {variants.map(v => (
+        <div key={v.id} className="px-4 py-3 text-sm space-y-1">
+          <div className="font-medium">{v.title || 'Variant'}</div>
+          <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+            {v.sku ? (
+              <span>
+                SKU: <code className="text-foreground">{v.sku}</code>
+              </span>
+            ) : (
+              <span>No SKU</span>
+            )}
+            {variantOptions(v) ? <span>Options: {variantOptions(v)}</span> : null}
+            <span>Shopify variant ID: {v.id}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function VariantGroupsEditor({ item }) {
   const [productId, setProductId] = useState(null);
   const [variants, setVariants] = useState([]);
@@ -133,16 +168,24 @@ export default function VariantGroupsEditor({ item }) {
     );
   }
 
-  if (variants.length < 2) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        This product has fewer than two variants. Add variants in Shopify to use main/sub grouping.
-      </p>
-    );
-  }
+  const canEditGroups = variants.length >= 2;
 
   return (
     <div className="space-y-4">
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Shopify variants ({variants.length})</p>
+        <ShopifyVariantsList variants={variants} />
+      </div>
+
+      {!canEditGroups && variants.length === 1 ? (
+        <p className="text-sm text-muted-foreground border border-dashed rounded-md px-3 py-2">
+          Main/sub grouping needs at least two variants. Add another variant in Shopify to configure
+          groups; the variant above is already synced from Shopify.
+        </p>
+      ) : null}
+
+      {!canEditGroups ? null : (
+        <>
       <p className="text-sm text-muted-foreground">
         Map a main variant code to one or more sub codes. Saved to metafield{' '}
         <code className="text-xs">custom.variant_code_groups</code>.
@@ -228,6 +271,9 @@ export default function VariantGroupsEditor({ item }) {
           Save groups
         </Button>
       </div>
+
+        </>
+      )}
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {success ? <p className="text-sm text-green-600">{success}</p> : null}
