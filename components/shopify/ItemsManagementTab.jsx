@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, Search, ShoppingBag } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, Search } from 'lucide-react';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_COLORS, TYPE_LABELS } from '../../constants/fn6';
 import { Button } from '../ui/button';
@@ -121,26 +121,15 @@ export default function ItemsManagementTab({ initialSku }) {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Media management</CardTitle>
+              <CardTitle className="text-base">Media & Shopify management</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-0 p-0">
               <MediaSection
                 item={item}
                 onMediaChange={refreshItem}
                 onUploadingChange={setMediaBusy}
                 shopifyImageCount={shopifyImageCount}
               />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <ShoppingBag size={16} />
-                Publish / update / remove
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
               <ShopifyPublishForm
                 key={item.mco}
                 item={item}

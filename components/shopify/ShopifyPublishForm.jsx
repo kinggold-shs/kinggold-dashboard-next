@@ -265,70 +265,6 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
         )}
       </div>
       <div className="shopify-form-body">
-        <div className="form-row">
-          <label className="form-label">Product Name</label>
-          <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Product title" />
-        </div>
-        <div className="form-row">
-          <label className="form-label">Product Type</label>
-          <select value={productType} onChange={e => setProductType(e.target.value)} className="form-select">
-            {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <div className="form-row">
-          <label className="form-label">Price (EGP)</label>
-          <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
-        </div>
-        {isListed && (
-          <div className="form-row">
-            <label className="form-label">Status</label>
-            <select value={status} onChange={e => setStatus(e.target.value)} className="form-select">
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-            </select>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground -mt-1">
-          Description and Spec are combined on the Shopify product page.
-        </p>
-        <div className="form-row">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <label className="form-label mb-0">Description</label>
-            <button
-              type="button"
-              className="text-xs text-gold-600 hover:underline"
-              onClick={() => setDescription(buildDefaultDescription(item))}
-            >
-              Reset from item
-            </button>
-          </div>
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            className="form-textarea text-sm"
-            rows={4}
-            placeholder="Product marketing copy…"
-          />
-        </div>
-        <div className="form-row">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <label className="form-label mb-0">Spec</label>
-            <button
-              type="button"
-              className="text-xs text-gold-600 hover:underline"
-              onClick={() => setSpec(buildDefaultSpec(item))}
-            >
-              Reset spec from item
-            </button>
-          </div>
-          <textarea
-            value={spec}
-            onChange={e => setSpec(e.target.value)}
-            className="form-textarea font-mono text-xs"
-            rows={8}
-            placeholder="Gold price, weight, karat, SKU…"
-          />
-        </div>
         {isListed && shopifyImageCount > 0 && (
           <div className="shopify-images-preview">
             <span className="text-xs text-muted-foreground font-medium">Shopify photos ({shopifyImageCount})</span>
@@ -444,6 +380,70 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
             <span>No images — publish/update without photos</span>
           </div>
         )}
+        <div className="form-row">
+          <label className="form-label">Product Name</label>
+          <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Product title" />
+        </div>
+        <div className="form-row">
+          <label className="form-label">Product Type</label>
+          <select value={productType} onChange={e => setProductType(e.target.value)} className="form-select">
+            {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="form-row">
+          <label className="form-label">Price (EGP)</label>
+          <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
+        </div>
+        {isListed && (
+          <div className="form-row">
+            <label className="form-label">Status</label>
+            <select value={status} onChange={e => setStatus(e.target.value)} className="form-select">
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground -mt-1">
+          Description and Spec are combined on the Shopify product page.
+        </p>
+        <div className="form-row">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className="form-label mb-0">Description</label>
+            <button
+              type="button"
+              className="text-xs text-gold-600 hover:underline"
+              onClick={() => setDescription(buildDefaultDescription(item))}
+            >
+              Reset from item
+            </button>
+          </div>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            className="form-textarea text-sm"
+            rows={4}
+            placeholder="Product marketing copy…"
+          />
+        </div>
+        <div className="form-row">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className="form-label mb-0">Spec</label>
+            <button
+              type="button"
+              className="text-xs text-gold-600 hover:underline"
+              onClick={() => setSpec(buildDefaultSpec(item))}
+            >
+              Reset spec from item
+            </button>
+          </div>
+          <textarea
+            value={spec}
+            onChange={e => setSpec(e.target.value)}
+            className="form-textarea font-mono text-xs"
+            rows={8}
+            placeholder="Gold price, weight, karat, SKU…"
+          />
+        </div>
         {shopUrl && (
           <p className="text-xs">
             <a href={shopUrl} target="_blank" rel="noopener noreferrer" className="text-gold-600 underline">
