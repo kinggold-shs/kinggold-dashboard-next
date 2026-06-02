@@ -162,7 +162,7 @@ export default function ItemsManagementTab({ initialSku }) {
       {item && (
         <div className="text-xs text-muted-foreground inline-flex items-center gap-1">
           <CheckCircle2 size={12} />
-          Changes are applied directly to FN6 media and Shopify product records.
+          Media changes are applied directly to FN6 only.
         </div>
       )}
     </div>
