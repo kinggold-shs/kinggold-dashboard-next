@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import MediaSection from './MediaSection';
 import ShopifyPublishForm from './ShopifyPublishForm';
+import VariantGroupsEditor from './VariantGroupsEditor';
 
 const DASH = '—';
 
@@ -147,6 +148,15 @@ export default function ItemsManagementTab({ initialSku }) {
                 onShopifyImagesChange={setShopifyImageCount}
                 onMediaChange={refreshItem}
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Variant groups</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <VariantGroupsEditor key={item.mco} item={item} />
             </CardContent>
           </Card>
         </>
