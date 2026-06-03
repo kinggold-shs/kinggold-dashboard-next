@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, ImageIcon, Loader2, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { fn6Quantity, shopifyInventoryPayloadFromGwebQty } from '../../lib/fn6ItemFields';
 import { buildDefaultDescription, buildDefaultSpec, splitBodyHtml } from '../../lib/fn6Spec';
 import { getItemImageUrls } from '../../lib/mediaUrl';
 import {
@@ -36,7 +37,6 @@ function mediaUrlOnShopify(src, shopifyImages) {
 export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange, onMediaChange }) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
-  const [price, setPrice] = useState(item.price ? String(Math.round(Number(item.price))) : '');
   const [status, setStatus] = useState('active');
   const [description, setDescription] = useState(() => buildDefaultDescription(item));
   const [spec, setSpec] = useState(() => buildDefaultSpec(item));
@@ -56,6 +56,11 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
   const [imageActionBusy, setImageActionBusy] = useState(false);
   const [confirmDeleteImageId, setConfirmDeleteImageId] = useState(null);
 
+  const itemPrice = useMemo(() => {
+    if (item.price == null || item.price === '') return '';
+    return String(Math.round(Number(item.price)));
+  }, [item.price]);
+
   const imageUrls = useMemo(() => getItemImageUrls(item), [item]);
   const mediaImageCount = imageUrls.length;
   const shopifyImageCount = shopifyImages.length;
@@ -74,7 +79,6 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
     onShopifyImagesChange?.(0);
     setTitle(item.idis || `Gold Item ${item.mco}`);
     setProductType('Ring');
-    setPrice(item.price ? String(Math.round(Number(item.price))) : '');
     setStatus('active');
     setDescription(buildDefaultDescription(item));
     setSpec(buildDefaultSpec(item));
@@ -93,11 +97,6 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
         setVariantId(data.variantId);
         setTitle(data.title || item.idis || `Gold Item ${item.mco}`);
         setProductType(data.product_type || 'Ring');
-        setPrice(
-          data.price != null
-            ? String(Math.round(Number(data.price)))
-            : (item.price ? String(Math.round(Number(item.price))) : ''),
-        );
         setStatus(data.status || 'active');
         const split = splitBodyHtml(data.body_html, item);
         setDescription(split.description);
@@ -132,16 +131,19 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
     setPubError('');
     setSuccessMsg('');
     try {
-      const payload = buildPublishPayload({
-        title,
-        description,
-        spec,
-        productType,
-        price,
-        status,
-        sku: item.mco,
-        imageUrls,
-      });
+      const payload = {
+        ...buildPublishPayload({
+          title,
+          description,
+          spec,
+          productType,
+          price: itemPrice,
+          status,
+          sku: item.mco,
+          imageUrls,
+        }),
+        ...shopifyInventoryPayloadFromGwebQty(fn6Quantity(item)),
+      };
       const data = await publishShopifyItem(payload);
       setSuccessMsg('Published to Shopify');
       setShopUrl(data.shopUrl || null);
@@ -164,7 +166,7 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
         description,
         spec,
         productType,
-        price,
+        price: itemPrice,
         status,
         sku: item.mco,
         imageUrls,
@@ -392,7 +394,17 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
         </div>
         <div className="form-row">
           <label className="form-label">Price (EGP)</label>
-          <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
+          <Input
+            type="text"
+            value={itemPrice}
+            readOnly
+            disabled
+            placeholder="—"
+            className="bg-muted/50 cursor-not-allowed"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Price is set automatically from the live gold price.
+          </p>
         </div>
         {isListed && (
           <div className="form-row">
@@ -466,7 +478,7 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
         <div className="flex flex-col gap-2">
           {isListed ? (
             <>
-              <Button onClick={handleUpdate} disabled={busy || !title.trim() || !price} className="w-full">
+              <Button onClick={handleUpdate} disabled={busy || !title.trim() || !itemPrice} className="w-full">
                 {saving
                   ? <><Loader2 size={14} className="animate-spin mr-2" />Updating…</>
                   : <><ShoppingBag size={14} className="mr-2" />Update on Shopify</>
@@ -488,7 +500,7 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
               )}
             </>
           ) : (
-            <Button onClick={handlePublish} disabled={busy || !title.trim() || !price} className="w-full">
+            <Button onClick={handlePublish} disabled={busy || !title.trim() || !itemPrice} className="w-full">
               {saving
                 ? <><Loader2 size={14} className="animate-spin mr-2" />Publishing…</>
                 : <><ShoppingBag size={14} className="mr-2" />Publish to Shopify</>

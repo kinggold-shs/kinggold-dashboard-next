@@ -1,13 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { fn6Api } from '../../api/fn6';
+import { fn6Quantity, shopifyInventoryPayloadFromGwebQty } from '../../lib/fn6ItemFields';
+import Fn6ItemMetadataPanel from '../Fn6ItemMetadataPanel';
 import { AlertCircle, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Label } from '../ui/label';
-import { Switch } from '../ui/switch';
 import {
   Table,
   TableBody,
@@ -33,142 +34,132 @@ import {
 } from '../ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import {
-  createShopifyVariant,
   updateShopifyVariant,
   deleteShopifyVariant,
 } from '../../lib/shopifyItemWorkflow';
 import {
-  deriveSubSku,
+  getOptionSelectUiState,
+  isPlaceholderOptionValue,
   optionValuesToRestPayload,
+  resolveOptionCatalogValues,
+  validateNonKaratOptionUniqueness,
+  validateOptionSelectionsAgainstProduct,
   variantToOptionPayload,
 } from '../../lib/variantModel';
+import AddSubVariantDialog from './AddSubVariantDialog';
 
 const UNSET = '__unset__';
 
-function optionValuesInOrder(optionTypes, selectedByName) {
-  return (optionTypes || []).map(t => selectedByName[t.name] || '');
+function effectiveOptionSelection(selectedByName, typeName) {
+  const v = selectedByName?.[typeName];
+  return v && !isPlaceholderOptionValue(v) ? v : '';
+}
+
+function variantDeleteLabel(variant, optionTypes, shopifyOptions) {
+  if (!variant) return 'this variant';
+  if (variant.sku) return variant.sku;
+  const selected = variantToOptionPayload(variant, optionTypes, shopifyOptions);
+  const parts = (optionTypes || [])
+    .map(t => effectiveOptionSelection(selected, t.name))
+    .filter(Boolean);
+  return parts.length ? parts.join(' / ') : 'this variant';
 }
 
 function SubVariantFormRow({
   optionTypes,
+  shopifyOptions,
+  variants,
+  mainVariant,
+  excludeVariantId,
   mco,
-  existingSkus,
   form,
   onChange,
   disabled,
+  isMain = false,
 }) {
-  const derivedSku = useMemo(
-    () => deriveSubSku(mco, optionValuesInOrder(optionTypes, form.selectedByName), existingSkus),
-    [mco, optionTypes, form.selectedByName, existingSkus],
-  );
-
-  const displaySku = form.skuOverride ? form.sku : derivedSku;
-
   function setOptionValue(typeName, value) {
     const nextSelected = { ...form.selectedByName, [typeName]: value === UNSET ? '' : value };
-    const nextSku = form.skuOverride
-      ? form.sku
-      : deriveSubSku(mco, optionValuesInOrder(optionTypes, nextSelected), existingSkus);
     onChange({
       ...form,
       selectedByName: nextSelected,
-      sku: nextSku,
-    });
-  }
-
-  function toggleOverride(checked) {
-    onChange({
-      ...form,
-      skuOverride: checked,
-      sku: checked ? (form.sku || derivedSku) : derivedSku,
     });
   }
 
   return (
     <>
-      {(optionTypes || []).map(type => (
+      {(optionTypes || []).map(type => {
+        const currentValue = effectiveOptionSelection(form.selectedByName, type.name);
+        const catalogValues = resolveOptionCatalogValues(
+          type,
+          shopifyOptions,
+          variants,
+          mainVariant,
+        );
+        const { selectableValues, hint, disableSelect } = getOptionSelectUiState({
+          typeName: type.name,
+          catalogValues,
+          variants,
+          mainVariant,
+          optionTypes,
+          shopifyOptions,
+          excludeVariantId,
+          currentValue,
+        });
+        return (
         <TableCell key={type.name}>
-          <Select
-            value={form.selectedByName[type.name] || UNSET}
-            onValueChange={v => setOptionValue(type.name, v)}
-            disabled={disabled || !type.values?.length}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue placeholder={type.name} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={UNSET}>Select {type.name}</SelectItem>
-              {(type.values || []).map(val => (
-                <SelectItem key={val} value={val}>
-                  {val}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </TableCell>
-      ))}
-      <TableCell>
-        <div className="space-y-1">
-          {form.skuOverride ? (
-            <Input
-              value={form.sku}
-              onChange={e => onChange({ ...form, sku: e.target.value })}
-              disabled={disabled}
-              className="h-8"
-            />
-          ) : (
-            <code className="text-xs">{displaySku || '—'}</code>
-          )}
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={form.skuOverride}
-              onCheckedChange={toggleOverride}
-              disabled={disabled}
-              id={`sku-override-${form.id || 'new'}`}
-            />
-            <Label htmlFor={`sku-override-${form.id || 'new'}`} className="text-xs text-muted-foreground">
-              Override SKU
-            </Label>
+          <div className="space-y-1 min-w-[8rem]">
+            {hint ? (
+              <p className="text-[11px] leading-snug text-amber-700 dark:text-amber-500">{hint}</p>
+            ) : null}
+            <Select
+              value={currentValue || UNSET}
+              onValueChange={v => setOptionValue(type.name, v)}
+              disabled={disabled || disableSelect}
+            >
+              <SelectTrigger className="h-8">
+                <SelectValue placeholder={type.name} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNSET}>Select {type.name}</SelectItem>
+                {selectableValues.map(val => (
+                  <SelectItem key={val} value={val}>
+                    {val}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
+        </TableCell>
+        );
+      })}
+      <TableCell>
+        <code className="text-xs">{isMain ? (form.sku || mco || '—') : (form.sku || '—')}</code>
       </TableCell>
       <TableCell>
         <Input
           value={form.price}
-          onChange={e => onChange({ ...form, price: e.target.value })}
-          placeholder="0.00"
-          type="number"
-          step="0.01"
-          min="0"
-          disabled={disabled}
-          className="h-8"
+          readOnly
+          disabled
+          placeholder="—"
+          type="text"
+          className="h-8 bg-muted/50 cursor-not-allowed"
         />
       </TableCell>
     </>
   );
 }
 
-function emptySubForm(optionTypes) {
-  const selectedByName = {};
-  (optionTypes || []).forEach(t => {
-    selectedByName[t.name] = '';
-  });
-  return {
-    selectedByName,
-    sku: '',
-    skuOverride: false,
-    price: '',
-  };
+function roundedFn6Price(item) {
+  if (!item || item.price == null || item.price === '') return '';
+  return String(Math.round(Number(item.price)));
 }
 
-function subFormFromVariant(variant, optionTypes, mco, existingSkus) {
-  const selectedByName = variantToOptionPayload(variant, optionTypes);
-  const sku = variant.sku || '';
+function subFormFromVariant(variant, optionTypes, shopifyOptions) {
+  const selectedByName = variantToOptionPayload(variant, optionTypes, shopifyOptions);
   return {
     id: variant.id,
     selectedByName,
-    sku,
-    skuOverride: Boolean(sku && sku !== deriveSubSku(mco, optionValuesInOrder(optionTypes, selectedByName), existingSkus)),
+    sku: variant.sku || '',
     price: variant.price != null && variant.price !== '' ? String(variant.price) : '',
   };
 }
@@ -176,6 +167,8 @@ function subFormFromVariant(variant, optionTypes, mco, existingSkus) {
 export default function ShopifyVariantsEditor({
   mco,
   optionTypes = [],
+  shopifyOptions = [],
+  variantTypesDirty = false,
   mainVariant,
   productId,
   variants = [],
@@ -183,13 +176,16 @@ export default function ShopifyVariantsEditor({
   onVariantsChanged,
 }) {
   const [editingId, setEditingId] = useState(null);
-  const [mainPrice, setMainPrice] = useState('');
-  const [editingMainPrice, setEditingMainPrice] = useState(false);
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [rowError, setRowError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [addFromCodeOpen, setAddFromCodeOpen] = useState(false);
+  const [metaSku, setMetaSku] = useState(null);
+  const [metaItem, setMetaItem] = useState(null);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const metaGen = useRef(0);
 
   const subVariants = useMemo(
     () => variants.filter(v => !mainVariant || Number(v.id) !== Number(mainVariant.id)),
@@ -203,7 +199,43 @@ export default function ShopifyVariantsEditor({
 
   const canDeleteSub = variants.length > 1;
 
-  function validateSubForm(subForm) {
+  function clearVariantMetadata() {
+    setMetaSku(null);
+    setMetaItem(null);
+    setMetaLoading(false);
+    metaGen.current += 1;
+  }
+
+  function selectVariantMetadata(sku) {
+    const code = String(sku || '').trim();
+    if (!code || editingId != null) return;
+
+    if (metaSku === code) {
+      clearVariantMetadata();
+      return;
+    }
+
+    const gen = ++metaGen.current;
+    setMetaSku(code);
+    setMetaItem(null);
+    setMetaLoading(true);
+    fn6Api
+      .getByMco(code)
+      .then(res => {
+        if (metaGen.current !== gen) return;
+        setMetaItem(res.data);
+      })
+      .catch(() => {
+        if (metaGen.current !== gen) return;
+        setMetaItem({ mco: code });
+      })
+      .finally(() => {
+        if (metaGen.current !== gen) return;
+        setMetaLoading(false);
+      });
+  }
+
+  function validateSubForm(subForm, excludeVariantId = null) {
     if (!optionTypes.length) {
       return 'Add variant types before creating sub-variants.';
     }
@@ -212,26 +244,74 @@ export default function ShopifyVariantsEditor({
         return `Select a value for ${type.name}.`;
       }
     }
-    return null;
-  }
-
-  function startEditMainPrice() {
-    setRowError('');
-    setMainPrice(
-      mainVariant?.price != null && mainVariant.price !== ''
-        ? String(mainVariant.price)
-        : '',
+    const productErr = validateOptionSelectionsAgainstProduct(
+      optionTypes,
+      subForm.selectedByName,
+      shopifyOptions,
     );
-    setEditingMainPrice(true);
+    if (productErr) return productErr;
+    return validateNonKaratOptionUniqueness(
+      optionTypes,
+      subForm.selectedByName,
+      variants,
+      mainVariant,
+      { excludeVariantId, shopifyOptions },
+    );
   }
 
-  async function saveMainPrice() {
+  const isEditingMain = mainVariant && editingId != null && Number(editingId) === Number(mainVariant.id);
+
+  function refreshFormPriceFromFn6(code) {
+    const trimmed = String(code || '').trim();
+    if (!trimmed) return;
+    fn6Api
+      .getByMco(trimmed)
+      .then(res => {
+        const nextPrice = roundedFn6Price(res.data);
+        if (!nextPrice) return;
+        setForm(prev => (prev ? { ...prev, price: nextPrice } : prev));
+      })
+      .catch(() => {});
+  }
+
+  function startEditMain() {
     if (!mainVariant) return;
+    clearVariantMetadata();
+    setRowError('');
+    setEditingId(mainVariant.id);
+    setForm(subFormFromVariant(mainVariant, optionTypes, shopifyOptions));
+    refreshFormPriceFromFn6(mco);
+  }
+
+  async function handleSaveMain() {
+    if (!mainVariant) return;
+    const validation = validateSubForm(form, mainVariant.id);
+    if (validation) {
+      setRowError(validation);
+      return;
+    }
+
     setSaving(true);
     setRowError('');
     try {
-      await updateShopifyVariant(productId, mainVariant.id, { price: mainPrice });
-      setEditingMainPrice(false);
+      const restOptions = optionValuesToRestPayload(
+        optionTypes,
+        form.selectedByName,
+        shopifyOptions,
+      );
+      let price = form.price;
+      try {
+        const res = await fn6Api.getByMco(mco);
+        const nextPrice = roundedFn6Price(res.data);
+        if (nextPrice) price = nextPrice;
+      } catch {
+        // keep form.price
+      }
+      await updateShopifyVariant(productId, mainVariant.id, {
+        ...restOptions,
+        price,
+      });
+      cancelEdit();
       await onRefresh();
       onVariantsChanged?.();
     } catch (err) {
@@ -242,15 +322,11 @@ export default function ShopifyVariantsEditor({
   }
 
   function startEditSub(variant) {
+    clearVariantMetadata();
     setRowError('');
     setEditingId(variant.id);
-    setForm(subFormFromVariant(variant, optionTypes, mco, existingSkus));
-  }
-
-  function startNewSub() {
-    setRowError('');
-    setEditingId('new');
-    setForm(emptySubForm(optionTypes));
+    setForm(subFormFromVariant(variant, optionTypes, shopifyOptions));
+    refreshFormPriceFromFn6(variant.sku);
   }
 
   function cancelEdit() {
@@ -260,7 +336,7 @@ export default function ShopifyVariantsEditor({
   }
 
   async function handleSaveSub() {
-    const validation = validateSubForm(form);
+    const validation = validateSubForm(form, editingId);
     if (validation) {
       setRowError(validation);
       return;
@@ -269,22 +345,30 @@ export default function ShopifyVariantsEditor({
     setSaving(true);
     setRowError('');
     try {
-      const restOptions = optionValuesToRestPayload(optionTypes, form.selectedByName);
-      const payload = {
-        ...restOptions,
-        sku: form.skuOverride ? form.sku : deriveSubSku(
-          mco,
-          optionValuesInOrder(optionTypes, form.selectedByName),
-          existingSkus,
-        ),
-        price: form.price,
-      };
-
-      if (editingId === 'new') {
-        await createShopifyVariant(productId, payload);
-      } else {
-        await updateShopifyVariant(productId, editingId, payload);
+      const restOptions = optionValuesToRestPayload(
+        optionTypes,
+        form.selectedByName,
+        shopifyOptions,
+      );
+      let inventoryPayload = {};
+      let price = form.price;
+      const skuCode = String(form.sku || '').trim();
+      if (skuCode) {
+        try {
+          const res = await fn6Api.getByMco(skuCode);
+          inventoryPayload = shopifyInventoryPayloadFromGwebQty(fn6Quantity(res.data));
+          const nextPrice = roundedFn6Price(res.data);
+          if (nextPrice) price = nextPrice;
+        } catch {
+          inventoryPayload = {};
+        }
       }
+      await updateShopifyVariant(productId, editingId, {
+        ...restOptions,
+        sku: form.sku,
+        price,
+        ...inventoryPayload,
+      });
       cancelEdit();
       await onRefresh();
       onVariantsChanged?.();
@@ -302,7 +386,7 @@ export default function ShopifyVariantsEditor({
     try {
       await deleteShopifyVariant(productId, deleteTarget.id);
       setDeleteTarget(null);
-      if (editingId === deleteTarget.id) cancelEdit();
+      if (editingId != null && Number(editingId) === Number(deleteTarget.id)) cancelEdit();
       await onRefresh();
       onVariantsChanged?.();
     } catch (err) {
@@ -323,7 +407,6 @@ export default function ShopifyVariantsEditor({
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableHead className={headClass}>Role</TableHead>
-              <TableHead className={headClass}>Title</TableHead>
               {optionHeaders.map(name => (
                 <TableHead key={name} className={headClass}>{name}</TableHead>
               ))}
@@ -336,67 +419,77 @@ export default function ShopifyVariantsEditor({
           </TableHeader>
           <TableBody>
             {mainVariant ? (
-              <TableRow className="bg-gold-50/70 hover:bg-gold-50/90 border-l-2 border-l-gold-500">
-                <TableCell>
-                  <Badge variant="default">Main</Badge>
-                </TableCell>
-                <TableCell className="font-medium">{mainVariant.title || 'Main variant'}</TableCell>
-                {optionTypes.map(type => {
-                  const selected = variantToOptionPayload(mainVariant, optionTypes);
-                  return (
-                    <TableCell key={type.name} className="text-muted-foreground text-sm">
-                      {selected[type.name] || '—'}
-                    </TableCell>
-                  );
-                })}
-                <TableCell>
-                  <code className="text-xs">{mainVariant.sku || mco}</code>
-                </TableCell>
-                <TableCell>
-                  {editingMainPrice ? (
-                    <Input
-                      value={mainPrice}
-                      onChange={e => setMainPrice(e.target.value)}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      disabled={saving}
-                      className="h-8 w-28"
-                    />
-                  ) : (
-                    mainVariant.price != null && mainVariant.price !== '' ? mainVariant.price : '—'
-                  )}
-                </TableCell>
-                <TableCell className="text-right sticky right-0 bg-gold-50/70 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]">
-                  <div className="flex justify-end gap-1 flex-wrap">
-                  {editingMainPrice ? (
-                    <>
-                      <Button size="sm" onClick={saveMainPrice} disabled={saving}>
+              isEditingMain && form ? (
+                <TableRow className="bg-gold-50/70 border-l-2 border-l-gold-500">
+                  <TableCell>
+                    <Badge variant="default">Main</Badge>
+                  </TableCell>
+                  <SubVariantFormRow
+                    optionTypes={optionTypes}
+                    shopifyOptions={shopifyOptions}
+                    variants={variants}
+                    mainVariant={mainVariant}
+                    excludeVariantId={mainVariant.id}
+                    mco={mco}
+                    form={form}
+                    onChange={setForm}
+                    disabled={saving}
+                    isMain
+                  />
+                  <TableCell className="text-right sticky right-0 bg-gold-50/70 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]">
+                    <div className="flex justify-end gap-1 flex-wrap">
+                      <Button size="sm" onClick={handleSaveMain} disabled={saving}>
                         {saving ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditingMainPrice(false)}
-                        disabled={saving}
-                      >
+                      <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
                         Cancel
                       </Button>
-                    </>
-                  ) : (
-                    <Button
-                      size="icon-sm"
-                      variant="outline"
-                      onClick={startEditMainPrice}
-                      disabled={editingId != null}
-                      aria-label="Edit main variant price"
-                    >
-                      <Pencil size={14} />
-                    </Button>
-                  )}
-                  </div>
-                </TableCell>
-              </TableRow>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <TableRow
+                  className={`bg-gold-50/70 hover:bg-gold-50/90 border-l-2 border-l-gold-500 cursor-pointer ${
+                    metaSku === String(mainVariant.sku || mco) ? 'ring-1 ring-inset ring-gold-300/70' : ''
+                  }`}
+                  onClick={() => selectVariantMetadata(mainVariant.sku || mco)}
+                  title="View GWEB item details"
+                >
+                  <TableCell>
+                    <Badge variant="default">Main</Badge>
+                  </TableCell>
+                  {optionTypes.map(type => {
+                    const selected = variantToOptionPayload(mainVariant, optionTypes, shopifyOptions);
+                    return (
+                      <TableCell key={type.name} className="text-muted-foreground text-sm">
+                        {effectiveOptionSelection(selected, type.name) || '—'}
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell>
+                    <code className="text-xs">{mainVariant.sku || mco}</code>
+                  </TableCell>
+                  <TableCell>
+                    {mainVariant.price != null && mainVariant.price !== '' ? mainVariant.price : '—'}
+                  </TableCell>
+                  <TableCell
+                    className="text-right sticky right-0 bg-gold-50/70 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="flex justify-end gap-1 flex-wrap">
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        onClick={startEditMain}
+                        disabled={editingId != null || !optionTypes.length}
+                        aria-label="Edit variant"
+                      >
+                        <Pencil size={14} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
             ) : null}
 
             {subVariants.map(v => {
@@ -409,11 +502,13 @@ export default function ShopifyVariantsEditor({
                         Sub
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{v.title || '—'}</TableCell>
                     <SubVariantFormRow
                       optionTypes={optionTypes}
+                      shopifyOptions={shopifyOptions}
+                      variants={variants}
+                      mainVariant={mainVariant}
+                      excludeVariantId={v.id}
                       mco={mco}
-                      existingSkus={existingSkus}
                       form={form}
                       onChange={setForm}
                       disabled={saving}
@@ -431,25 +526,36 @@ export default function ShopifyVariantsEditor({
                   </TableRow>
                 );
               }
-              const selected = variantToOptionPayload(v, optionTypes);
+              const selected = variantToOptionPayload(v, optionTypes, shopifyOptions);
+              const rowSku = v.sku ? String(v.sku) : '';
+              const isMetaSelected = rowSku && metaSku === rowSku;
               return (
-                <TableRow key={v.id} className="hover:bg-muted/30">
+                <TableRow
+                  key={v.id}
+                  className={`hover:bg-muted/30 ${rowSku ? 'cursor-pointer' : ''} ${
+                    isMetaSelected ? 'bg-gold-50/50 ring-1 ring-inset ring-gold-300/70' : ''
+                  }`}
+                  onClick={() => rowSku && selectVariantMetadata(rowSku)}
+                  title={rowSku ? 'View GWEB item details' : undefined}
+                >
                   <TableCell>
                     <Badge variant="outline" className="font-normal text-muted-foreground">
                       Sub
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-medium">{v.title || 'Variant'}</TableCell>
                   {optionTypes.map(type => (
                     <TableCell key={type.name} className="text-muted-foreground">
-                      {selected[type.name] || '—'}
+                      {effectiveOptionSelection(selected, type.name) || '—'}
                     </TableCell>
                   ))}
                   <TableCell>
                     {v.sku ? <code className="text-xs">{v.sku}</code> : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>{v.price != null && v.price !== '' ? v.price : '—'}</TableCell>
-                  <TableCell className="text-right sticky right-0 bg-card shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]">
+                  <TableCell
+                    className="text-right sticky right-0 bg-card shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]"
+                    onClick={e => e.stopPropagation()}
+                  >
                     <div className="flex justify-end gap-1">
                     <Button
                       size="icon-sm"
@@ -491,38 +597,26 @@ export default function ShopifyVariantsEditor({
               );
             })}
 
-            {editingId === 'new' && form ? (
-              <TableRow className="bg-muted/25">
-                <TableCell>
-                  <Badge variant="outline" className="font-normal text-muted-foreground">
-                    Sub
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm italic">New sub-variant</TableCell>
-                <SubVariantFormRow
-                  optionTypes={optionTypes}
-                  mco={mco}
-                  existingSkus={existingSkus}
-                  form={form}
-                  onChange={setForm}
-                  disabled={saving}
-                />
-                <TableCell className="text-right sticky right-0 bg-muted/25">
-                  <div className="flex justify-end gap-1 flex-wrap">
-                  <Button size="sm" onClick={handleSaveSub} disabled={saving}>
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
-                    Cancel
-                  </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : null}
           </TableBody>
         </Table>
         </div>
       </div>
+
+      {metaSku ? (
+        <div className="rounded-lg border border-border/80 bg-muted/5 p-3 sm:p-4">
+          <p className="text-xs text-muted-foreground mb-2">
+            GWEB item for SKU <code className="rounded bg-muted px-1 py-0.5">{metaSku}</code>
+            {' '}
+            <span className="sr-only">Tap the row again to hide.</span>
+            <span aria-hidden>— tap row again to hide</span>
+          </p>
+          <Fn6ItemMetadataPanel item={metaItem} loading={metaLoading} />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Tap a variant row to view weight, price, and quantity from GWEB.
+        </p>
+      )}
 
       {rowError ? (
         <Alert variant="destructive" className="py-2.5">
@@ -535,26 +629,50 @@ export default function ShopifyVariantsEditor({
         <Button
           variant="outline"
           size="sm"
-          onClick={startNewSub}
-          disabled={editingId != null || !optionTypes.length}
+          onClick={() => setAddFromCodeOpen(true)}
+          disabled={editingId != null || !optionTypes.length || variantTypesDirty}
         >
           <Plus size={14} className="mr-1" />
           Add sub-variant
         </Button>
 
-        {!optionTypes.length ? (
+        {variantTypesDirty ? (
+          <p className="text-xs text-amber-700 dark:text-amber-500">
+            Save variant types above before adding sub-variants.
+          </p>
+        ) : !optionTypes.length ? (
           <p className="text-xs text-muted-foreground">
             Configure variant types above before adding sub-variants.
           </p>
-        ) : null}
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Search and select an FN6 code to add a sub-variant SKU.
+          </p>
+        )}
       </div>
+
+      <AddSubVariantDialog
+        open={addFromCodeOpen}
+        onOpenChange={setAddFromCodeOpen}
+        mco={mco}
+        productId={productId}
+        optionTypes={optionTypes}
+        shopifyOptions={shopifyOptions}
+        variants={variants}
+        mainVariant={mainVariant}
+        existingSkus={existingSkus}
+        onCreated={async () => {
+          await onRefresh();
+          onVariantsChanged?.();
+        }}
+      />
 
       <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete variant?</DialogTitle>
             <DialogDescription>
-              Remove {deleteTarget?.title || deleteTarget?.sku || 'this variant'} from Shopify. This cannot be undone.
+              Remove {variantDeleteLabel(deleteTarget, optionTypes, shopifyOptions)} from Shopify. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">

@@ -10,6 +10,7 @@ import {
 import {
   buildMetafieldGroups,
   findMainVariant,
+  mergeOptionTypesCatalog,
   productOptionTypes,
 } from '../../lib/variantModel';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -26,6 +27,8 @@ export default function VariantsPanel({ item }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [syncError, setSyncError] = useState('');
+  const [variantTypesDirty, setVariantTypesDirty] = useState(false);
+  const [draftOptionTypes, setDraftOptionTypes] = useState([]);
 
   const syncMetafield = useCallback(async (pid, mco, freshVariants) => {
     const main = findMainVariant(freshVariants, mco);
@@ -103,6 +106,11 @@ export default function VariantsPanel({ item }) {
     [options],
   );
 
+  const catalogOptionTypes = useMemo(
+    () => mergeOptionTypesCatalog(optionTypes, draftOptionTypes),
+    [optionTypes, draftOptionTypes],
+  );
+
   const subSkus = useMemo(() => {
     if (!mainVariant) return [];
     return variants
@@ -138,13 +146,18 @@ export default function VariantsPanel({ item }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-border/80 bg-muted/5 p-4 sm:p-5">
+      <section
+        className="rounded-lg border border-border/80 bg-muted/5 p-4 sm:p-5"
+        aria-label="Variant types"
+      >
         <VariantTypesEditor
           productId={productId}
           mco={item.mco}
           optionTypes={optionTypes}
           disabled={!published}
           onSaved={load}
+          onDirtyChange={setVariantTypesDirty}
+          onDraftTypesChange={setDraftOptionTypes}
         />
       </section>
 
@@ -184,7 +197,9 @@ export default function VariantsPanel({ item }) {
 
         <ShopifyVariantsEditor
           mco={item.mco}
-          optionTypes={optionTypes}
+          optionTypes={catalogOptionTypes}
+          shopifyOptions={options}
+          variantTypesDirty={variantTypesDirty}
           mainVariant={mainVariant}
           productId={productId}
           variants={variants}

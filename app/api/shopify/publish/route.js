@@ -1,10 +1,25 @@
 import { NextResponse } from 'next/server';
 import { getShopifyToken } from '../../../../lib/shopify';
+import {
+  applyVariantInventoryFromBody,
+  parseInventoryQuantityFromBody,
+  restVariantInventoryFields,
+} from '../../../../lib/shopifyInventory';
 
 export async function POST(request) {
   try {
-    const { title, body_html, product_type, price, sku, images } = await request.json();
+    const body = await request.json();
+    const { title, body_html, product_type, price, sku, images } = body;
     const { token, domain } = await getShopifyToken();
+
+    const inventoryQty = parseInventoryQuantityFromBody(body);
+    const variantFields = {
+      price: String(Number(price).toFixed(2)),
+      sku: String(sku),
+      ...(inventoryQty != null
+        ? restVariantInventoryFields(inventoryQty)
+        : { inventory_management: null }),
+    };
 
     const product = {
       product: {
@@ -13,11 +28,7 @@ export async function POST(request) {
         vendor: 'KingGold',
         product_type: product_type || 'Gold Jewelry',
         status: 'active',
-        variants: [{
-          price: String(Number(price).toFixed(2)),
-          sku: String(sku),
-          inventory_management: null,
-        }],
+        variants: [variantFields],
         images: (images || []),
       },
     };
@@ -36,6 +47,18 @@ export async function POST(request) {
     if (!res.ok) {
       const errMsg = typeof data.errors === 'object' ? JSON.stringify(data.errors) : (data.errors || 'Shopify API error');
       return NextResponse.json({ error: errMsg }, { status: res.status });
+    }
+
+    const createdVariant = data.product?.variants?.[0];
+    if (createdVariant?.id) {
+      try {
+        await applyVariantInventoryFromBody(domain, token, body, createdVariant.id);
+      } catch (inventoryErr) {
+        return NextResponse.json(
+          { error: `Product published but inventory sync failed: ${inventoryErr.message}` },
+          { status: 502 },
+        );
+      }
     }
 
     return NextResponse.json({

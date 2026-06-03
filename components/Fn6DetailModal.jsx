@@ -85,7 +85,7 @@ export default function Fn6DetailModal({ item, onClose }) {
               <Field label="Weight (g)" value={item?.weight != null ? `${Number(item.weight).toFixed(3)} g` : DASH} />
               <Field label="Total Weight" value={item?.total_weight != null ? `${Number(item.total_weight).toFixed(3)} g` : DASH} />
               <Field label="Mfg / g" value={item?.manufacturing || DASH} />
-              <Field label="Quantity" value={item?.quantity} />
+              <Field label="Quantity" value={item?.qt} />
             </div>
           </div>
 
