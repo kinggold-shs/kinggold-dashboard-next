@@ -30,6 +30,10 @@ export async function GET(request) {
         : null,
     });
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const msg = err.message || '';
+    if (msg.includes('HTTP 401') || msg.includes('HTTP 403')) {
+      return NextResponse.json({ error: msg }, { status: 403 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
