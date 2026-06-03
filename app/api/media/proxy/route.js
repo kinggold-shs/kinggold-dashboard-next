@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getPublicApiBaseUrl } from '../../../../lib/publicEnv';
 
 const ALLOWED_HOSTS = new Set([
   'kinggoldretail.e-jewelry-softwarehouse.com',
@@ -10,8 +11,8 @@ function hostAllowed(url) {
   try {
     const host = new URL(url).hostname;
     if (ALLOWED_HOSTS.has(host)) return true;
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-    if (apiBase) {
+    const apiBase = getPublicApiBaseUrl();
+    if (apiBase && apiBase !== 'http://127.0.0.1:8080') {
       const apiHost = new URL(apiBase).hostname;
       return host === apiHost;
     }
@@ -32,8 +33,7 @@ export async function GET(request) {
 
     let target = raw;
     if (target.startsWith('/')) {
-      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8080').replace(/\/$/, '');
-      target = `${base}${target}`;
+      target = `${getPublicApiBaseUrl()}${target}`;
     }
 
     if (!hostAllowed(target)) {
