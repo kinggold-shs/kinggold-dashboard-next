@@ -37,6 +37,7 @@ export async function GET(request, { params }) {
       metafieldId,
       variantCodeGroups: payload,
       variants: ctx.product.variants,
+      options: ctx.product.options,
       productTitle: ctx.product.title,
     });
   } catch (err) {

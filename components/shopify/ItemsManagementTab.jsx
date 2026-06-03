@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import MediaSection from './MediaSection';
 import ShopifyPublishForm from './ShopifyPublishForm';
-import VariantGroupsEditor from './VariantGroupsEditor';
+import VariantsPanel from './VariantsPanel';
 
 const DASH = '—';
 
@@ -142,10 +142,10 @@ export default function ItemsManagementTab({ initialSku }) {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Variant groups</CardTitle>
+              <CardTitle className="text-base">Variants</CardTitle>
             </CardHeader>
             <CardContent>
-              <VariantGroupsEditor key={item.mco} item={item} />
+              <VariantsPanel key={item.mco} item={item} />
             </CardContent>
           </Card>
         </>
