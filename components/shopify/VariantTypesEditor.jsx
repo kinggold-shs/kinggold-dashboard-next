@@ -50,8 +50,6 @@ import {
 
 } from '../ui/select';
 
-import { TYPE_OPTIONS_MODAL } from '../../constants/fn6';
-
 import {
 
   fetchVariantOptionSuggestions,
@@ -77,14 +75,6 @@ import {
   PRIMARY_OPTION_CATALOG,
 
 } from '../../lib/variantModel';
-
-
-
-const KARAT_PRESET_VALUES = TYPE_OPTIONS_MODAL
-
-  .filter(o => o.value)
-
-  .map(o => `${o.value}K`);
 
 
 
@@ -296,7 +286,7 @@ export default function VariantTypesEditor({
 
     if (trimmed.toLowerCase() === 'karat' && !values.length) {
 
-      values = [...KARAT_PRESET_VALUES];
+      values = ['18K'];
 
     }
 
@@ -320,7 +310,7 @@ export default function VariantTypesEditor({
 
   function startWithKaratAndSize() {
 
-    markDirty(() => defaultVariantTypesForNewProduct(KARAT_PRESET_VALUES));
+    markDirty(() => defaultVariantTypesForNewProduct());
 
   }
 
