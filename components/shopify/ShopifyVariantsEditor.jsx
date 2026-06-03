@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
+import { Alert, AlertDescription } from '../ui/alert';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import {
@@ -312,26 +313,30 @@ export default function ShopifyVariantsEditor({
   }
 
   const optionHeaders = optionTypes.map(t => t.name);
+  const headClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap';
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border overflow-hidden">
-        <Table>
+      <div className="rounded-lg border border-border/80 overflow-hidden bg-card shadow-sm">
+        <div className="overflow-x-auto">
+        <Table className="min-w-[640px]">
           <TableHeader>
-            <TableRow>
-              <TableHead>Role</TableHead>
-              <TableHead>Title</TableHead>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className={headClass}>Role</TableHead>
+              <TableHead className={headClass}>Title</TableHead>
               {optionHeaders.map(name => (
-                <TableHead key={name}>{name}</TableHead>
+                <TableHead key={name} className={headClass}>{name}</TableHead>
               ))}
-              <TableHead>SKU</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead className="w-[140px] text-right">Actions</TableHead>
+              <TableHead className={headClass}>SKU</TableHead>
+              <TableHead className={headClass}>Price</TableHead>
+              <TableHead className={`${headClass} text-right sticky right-0 bg-muted/40 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.08)]`}>
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {mainVariant ? (
-              <TableRow>
+              <TableRow className="bg-gold-50/70 hover:bg-gold-50/90 border-l-2 border-l-gold-500">
                 <TableCell>
                   <Badge variant="default">Main</Badge>
                 </TableCell>
@@ -362,7 +367,8 @@ export default function ShopifyVariantsEditor({
                     mainVariant.price != null && mainVariant.price !== '' ? mainVariant.price : '—'
                   )}
                 </TableCell>
-                <TableCell className="text-right space-x-1">
+                <TableCell className="text-right sticky right-0 bg-gold-50/70 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]">
+                  <div className="flex justify-end gap-1 flex-wrap">
                   {editingMainPrice ? (
                     <>
                       <Button size="sm" onClick={saveMainPrice} disabled={saving}>
@@ -379,14 +385,16 @@ export default function ShopifyVariantsEditor({
                     </>
                   ) : (
                     <Button
-                      size="sm"
+                      size="icon-sm"
                       variant="outline"
                       onClick={startEditMainPrice}
                       disabled={editingId != null}
+                      aria-label="Edit main variant price"
                     >
                       <Pencil size={14} />
                     </Button>
                   )}
+                  </div>
                 </TableCell>
               </TableRow>
             ) : null}
@@ -395,8 +403,12 @@ export default function ShopifyVariantsEditor({
               const isEditing = editingId === v.id;
               if (isEditing && form) {
                 return (
-                  <TableRow key={v.id}>
-                    <TableCell className="text-muted-foreground text-xs">Sub</TableCell>
+                  <TableRow key={v.id} className="bg-muted/20">
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal text-muted-foreground">
+                        Sub
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-xs">{v.title || '—'}</TableCell>
                     <SubVariantFormRow
                       optionTypes={optionTypes}
@@ -406,21 +418,27 @@ export default function ShopifyVariantsEditor({
                       onChange={setForm}
                       disabled={saving}
                     />
-                    <TableCell className="text-right space-x-1">
+                    <TableCell className="text-right sticky right-0 bg-muted/20">
+                      <div className="flex justify-end gap-1 flex-wrap">
                       <Button size="sm" onClick={handleSaveSub} disabled={saving}>
                         {saving ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
                         Cancel
                       </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
               }
               const selected = variantToOptionPayload(v, optionTypes);
               return (
-                <TableRow key={v.id}>
-                  <TableCell className="text-muted-foreground text-xs">Sub</TableCell>
+                <TableRow key={v.id} className="hover:bg-muted/30">
+                  <TableCell>
+                    <Badge variant="outline" className="font-normal text-muted-foreground">
+                      Sub
+                    </Badge>
+                  </TableCell>
                   <TableCell className="font-medium">{v.title || 'Variant'}</TableCell>
                   {optionTypes.map(type => (
                     <TableCell key={type.name} className="text-muted-foreground">
@@ -431,22 +449,25 @@ export default function ShopifyVariantsEditor({
                     {v.sku ? <code className="text-xs">{v.sku}</code> : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>{v.price != null && v.price !== '' ? v.price : '—'}</TableCell>
-                  <TableCell className="text-right space-x-1">
+                  <TableCell className="text-right sticky right-0 bg-card shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]">
+                    <div className="flex justify-end gap-1">
                     <Button
-                      size="sm"
+                      size="icon-sm"
                       variant="outline"
                       onClick={() => startEditSub(v)}
                       disabled={editingId != null || !optionTypes.length}
+                      aria-label="Edit sub-variant"
                     >
                       <Pencil size={14} />
                     </Button>
                     {canDeleteSub ? (
                       <Button
-                        size="sm"
+                        size="icon-sm"
                         variant="outline"
-                        className="text-destructive"
+                        className="text-destructive hover:text-destructive"
                         onClick={() => setDeleteTarget(v)}
                         disabled={editingId != null}
+                        aria-label="Delete sub-variant"
                       >
                         <Trash2 size={14} />
                       </Button>
@@ -455,7 +476,7 @@ export default function ShopifyVariantsEditor({
                         <TooltipTrigger
                           render={
                             <span className="inline-block">
-                              <Button size="sm" variant="outline" disabled>
+                              <Button size="icon-sm" variant="outline" disabled aria-label="Delete sub-variant">
                                 <Trash2 size={14} />
                               </Button>
                             </span>
@@ -464,15 +485,20 @@ export default function ShopifyVariantsEditor({
                         <TooltipContent>Shopify requires at least one variant</TooltipContent>
                       </Tooltip>
                     )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
             })}
 
             {editingId === 'new' && form ? (
-              <TableRow>
-                <TableCell className="text-muted-foreground text-xs">Sub</TableCell>
-                <TableCell className="text-muted-foreground text-xs">New sub-variant</TableCell>
+              <TableRow className="bg-muted/25">
+                <TableCell>
+                  <Badge variant="outline" className="font-normal text-muted-foreground">
+                    Sub
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm italic">New sub-variant</TableCell>
                 <SubVariantFormRow
                   optionTypes={optionTypes}
                   mco={mco}
@@ -481,37 +507,47 @@ export default function ShopifyVariantsEditor({
                   onChange={setForm}
                   disabled={saving}
                 />
-                <TableCell className="text-right space-x-1">
+                <TableCell className="text-right sticky right-0 bg-muted/25">
+                  <div className="flex justify-end gap-1 flex-wrap">
                   <Button size="sm" onClick={handleSaveSub} disabled={saving}>
                     {saving ? <Loader2 size={14} className="animate-spin" /> : 'Save'}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
                     Cancel
                   </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : null}
           </TableBody>
         </Table>
+        </div>
       </div>
 
-      {rowError ? <p className="text-sm text-destructive">{rowError}</p> : null}
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={startNewSub}
-        disabled={editingId != null || !optionTypes.length}
-      >
-        <Plus size={14} className="mr-1" />
-        Add sub-variant
-      </Button>
-
-      {!optionTypes.length ? (
-        <p className="text-xs text-muted-foreground">
-          Configure variant types above before adding sub-variants.
-        </p>
+      {rowError ? (
+        <Alert variant="destructive" className="py-2.5">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{rowError}</AlertDescription>
+        </Alert>
       ) : null}
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={startNewSub}
+          disabled={editingId != null || !optionTypes.length}
+        >
+          <Plus size={14} className="mr-1" />
+          Add sub-variant
+        </Button>
+
+        {!optionTypes.length ? (
+          <p className="text-xs text-muted-foreground">
+            Configure variant types above before adding sub-variants.
+          </p>
+        ) : null}
+      </div>
 
       <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
         <DialogContent>

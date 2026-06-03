@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { AlertCircle, Info, Loader2, Tags } from 'lucide-react';
 import {
   fetchVariantGroups,
   lookupShopifyProduct,
@@ -12,6 +12,9 @@ import {
   findMainVariant,
   productOptionTypes,
 } from '../../lib/variantModel';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Badge } from '../ui/badge';
+import { Separator } from '../ui/separator';
 import ShopifyVariantsEditor from './ShopifyVariantsEditor';
 import VariantTypesEditor from './VariantTypesEditor';
 
@@ -110,38 +113,75 @@ export default function VariantsPanel({ item }) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-        <Loader2 size={14} className="animate-spin" />
-        Loading variants…
+      <div
+        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/80 bg-muted/20 py-10"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        <Loader2 size={22} className="animate-spin text-gold-600" />
+        <p className="text-sm text-muted-foreground">Loading variants from Shopify…</p>
       </div>
     );
   }
 
   if (!productId) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Publish this item to Shopify first to manage variants.
-      </p>
+      <Alert variant="info" className="border-gold-200/60 bg-gold-50/40">
+        <Info className="size-4 text-gold-600" />
+        <AlertTitle>Not published yet</AlertTitle>
+        <AlertDescription>
+          Publish this item to Shopify first to manage variant types and sub-variants.
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="space-y-6">
-      <VariantTypesEditor
-        productId={productId}
-        mco={item.mco}
-        optionTypes={optionTypes}
-        disabled={!published}
-        onSaved={load}
-      />
+      <section className="rounded-lg border border-border/80 bg-muted/5 p-4 sm:p-5">
+        <VariantTypesEditor
+          productId={productId}
+          mco={item.mco}
+          optionTypes={optionTypes}
+          disabled={!published}
+          onSaved={load}
+        />
+      </section>
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Shopify variants ({variants.length})</p>
+      <Separator />
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Tags size={16} className="text-gold-600 shrink-0" />
+            <h4 className="text-sm font-semibold text-foreground">Shopify variants</h4>
+            <Badge variant="secondary">{variants.length}</Badge>
+          </div>
+          {subSkus.length > 0 ? (
+            <p className="text-xs text-muted-foreground w-full sm:w-auto sm:text-right">
+              Main <code className="rounded bg-muted px-1 py-0.5 text-gold-800">{item.mco}</code>
+              {' → '}
+              {subSkus.map((sku, i) => (
+                <span key={sku}>
+                  {i > 0 ? ', ' : ''}
+                  <code className="rounded bg-muted px-1 py-0.5">{sku}</code>
+                </span>
+              ))}
+            </p>
+          ) : null}
+        </div>
+
         {mainVariant && String(mainVariant.sku) !== String(item.mco) ? (
-          <p className="text-xs text-amber-700 bg-amber-500/10 border border-amber-200/50 rounded-md px-3 py-2">
-            No variant with SKU {item.mco}; using first variant as main. Set the main variant SKU to match the item code.
-          </p>
+          <Alert variant="warning">
+            <AlertCircle className="size-4" />
+            <AlertTitle>Main variant SKU mismatch</AlertTitle>
+            <AlertDescription>
+              No variant with SKU <code className="font-mono text-xs">{item.mco}</code>; using the
+              first variant as main. Set the main variant SKU to match the item code.
+            </AlertDescription>
+          </Alert>
         ) : null}
+
         <ShopifyVariantsEditor
           mco={item.mco}
           optionTypes={optionTypes}
@@ -150,24 +190,23 @@ export default function VariantsPanel({ item }) {
           variants={variants}
           onRefresh={onRefresh}
         />
-      </div>
+      </section>
 
-      {subSkus.length > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          Main: <code>{item.mco}</code>
-          {' → '}
-          subs:{' '}
-          {subSkus.map((sku, i) => (
-            <span key={sku}>
-              {i > 0 ? ', ' : ''}
-              <code>{sku}</code>
-            </span>
-          ))}
-        </p>
+      {syncError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertTitle>Metafield sync failed</AlertTitle>
+          <AlertDescription>{syncError}</AlertDescription>
+        </Alert>
       ) : null}
 
-      {syncError ? <p className="text-sm text-destructive">{syncError}</p> : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertTitle>Could not load variants</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { AlertCircle, CheckCircle2, Loader2, Search } from 'lucide-react';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_COLORS, TYPE_LABELS } from '../../constants/fn6';
 import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import MediaSection from './MediaSection';
 import ShopifyPublishForm from './ShopifyPublishForm';
@@ -141,10 +141,13 @@ export default function ItemsManagementTab({ initialSku }) {
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2">
               <CardTitle className="text-base">Variants</CardTitle>
+              <CardDescription>
+                Option types, main variant (item SKU), and sub-variants synced to Shopify.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-2">
               <VariantsPanel key={item.mco} item={item} />
             </CardContent>
           </Card>
