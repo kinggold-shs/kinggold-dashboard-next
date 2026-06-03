@@ -17,6 +17,7 @@ import {
   lookupShopifyProduct,
 } from '../../lib/shopifyItemWorkflow';
 import {
+  filterCustomerOptionTypes,
   getOptionSelectUiState,
   optionValuesToRestPayload,
   resolveOptionCatalogValues,
@@ -125,6 +126,11 @@ export default function AddSubVariantDialog({
   existingSkus = [],
   onCreated,
 }) {
+  const customerOptionTypes = useMemo(
+    () => filterCustomerOptionTypes(optionTypes),
+    [optionTypes],
+  );
+
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -133,7 +139,7 @@ export default function AddSubVariantDialog({
   const [selected, setSelected] = useState(null);
   const [metadataItem, setMetadataItem] = useState(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
-  const [selectedByName, setSelectedByName] = useState(() => emptySelectedByName(optionTypes));
+  const [selectedByName, setSelectedByName] = useState(() => emptySelectedByName(customerOptionTypes));
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [inventoryPreflightOk, setInventoryPreflightOk] = useState(false);
@@ -161,7 +167,7 @@ export default function AddSubVariantDialog({
     setSelected(null);
     setMetadataItem(null);
     setMetadataLoading(false);
-    setSelectedByName(emptySelectedByName(optionTypes));
+    setSelectedByName(emptySelectedByName(customerOptionTypes));
     setFormError('');
     setInventoryPreflightOk(false);
     setInventoryPreflightError('');
@@ -169,7 +175,7 @@ export default function AddSubVariantDialog({
     setListedByMco({});
     lookupGen.current += 1;
     metadataGen.current += 1;
-  }, [optionTypes]);
+  }, [customerOptionTypes]);
 
   useEffect(() => {
     if (!open) {
@@ -179,8 +185,8 @@ export default function AddSubVariantDialog({
 
   useEffect(() => {
     if (!open) return undefined;
-    setSelectedByName(emptySelectedByName(optionTypes));
-  }, [open, optionTypes]);
+    setSelectedByName(emptySelectedByName(customerOptionTypes));
+  }, [open, customerOptionTypes]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -298,7 +304,7 @@ export default function AddSubVariantDialog({
     setSelected(item);
     setMetadataItem(item);
     setFormError('');
-    setSelectedByName(emptySelectedByName(optionTypes));
+    setSelectedByName(emptySelectedByName(customerOptionTypes));
 
     const code = String(item?.mco || '').trim();
     if (!code) return;
@@ -322,22 +328,22 @@ export default function AddSubVariantDialog({
   }
 
   function validateOptions() {
-    if (!optionTypes.length) {
+    if (!customerOptionTypes.length) {
       return 'Configure variant types before adding sub-variants.';
     }
-    for (const type of optionTypes) {
+    for (const type of customerOptionTypes) {
       if (!selectedByName[type.name]) {
         return `Select a value for ${type.name}.`;
       }
     }
     const productErr = validateOptionSelectionsAgainstProduct(
-      optionTypes,
+      customerOptionTypes,
       selectedByName,
       shopifyOptions,
     );
     if (productErr) return productErr;
     return validateNonKaratOptionUniqueness(
-      optionTypes,
+      customerOptionTypes,
       selectedByName,
       variants,
       mainVariant,
@@ -376,7 +382,7 @@ export default function AddSubVariantDialog({
     setFormError('');
     try {
       const restOptions = optionValuesToRestPayload(
-        optionTypes,
+        customerOptionTypes,
         selectedByName,
         shopifyOptions,
       );
@@ -410,7 +416,7 @@ export default function AddSubVariantDialog({
   const selectedListedOnShopify = listedEntryStatus(selectedListed) === 'listed';
   const inventoryReady = inventoryPreflightOk && !inventoryPreflightLoading;
   const canCreate =
-    inventoryReady && selectedCanAssign && Boolean(optionTypes.length);
+    inventoryReady && selectedCanAssign && Boolean(customerOptionTypes.length);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -545,7 +551,7 @@ export default function AddSubVariantDialog({
                 shopifyInventoryTracked={selectedListed?.inventory_tracked ?? null}
               />
 
-              {(optionTypes || []).map(type => {
+              {(customerOptionTypes || []).map(type => {
                 const currentValue = effectiveOptionSelection(selectedByName, type.name);
                 const catalogValues = resolveOptionCatalogValues(
                   type,
@@ -558,7 +564,7 @@ export default function AddSubVariantDialog({
                   catalogValues,
                   variants,
                   mainVariant,
-                  optionTypes,
+                  optionTypes: customerOptionTypes,
                   shopifyOptions,
                   currentValue,
                 });

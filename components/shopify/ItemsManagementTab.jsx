@@ -13,14 +13,18 @@ import VariantsPanel from './VariantsPanel';
 
 const DASH = '—';
 
+function roundToNearest5(v) {
+  return Math.round(Number(v) / 5) * 5;
+}
+
 function formatCurrency(v) {
   if (v == null || Number.isNaN(Number(v))) return DASH;
   return new Intl.NumberFormat('en-EG', {
     style: 'currency',
     currency: 'EGP',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(v);
+    maximumFractionDigits: 0,
+  }).format(roundToNearest5(v));
 }
 
 export default function ItemsManagementTab({ initialSku }) {

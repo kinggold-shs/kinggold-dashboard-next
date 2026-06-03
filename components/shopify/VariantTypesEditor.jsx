@@ -70,6 +70,8 @@ import {
 
   isPrimaryCatalogOption,
 
+  filterCustomerOptionTypes,
+
   orderVariantTypes,
 
   PRIMARY_OPTION_CATALOG,
@@ -104,7 +106,7 @@ function normalizeTypes(types) {
 
     .filter(t => t.name && !isPlaceholderOptionName(t.name));
 
-  return orderVariantTypes(filtered);
+  return orderVariantTypes(filterCustomerOptionTypes(filtered));
 
 }
 
@@ -202,7 +204,7 @@ export default function VariantTypesEditor({
 
       const data = await fetchVariantOptionSuggestions();
 
-      setSuggestions(data.options || []);
+      setSuggestions(filterCustomerOptionTypes(data.options || []));
 
     } catch {
 

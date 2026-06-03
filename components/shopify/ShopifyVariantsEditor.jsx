@@ -38,6 +38,7 @@ import {
   deleteShopifyVariant,
 } from '../../lib/shopifyItemWorkflow';
 import {
+  filterCustomerOptionTypes,
   getOptionSelectUiState,
   isPlaceholderOptionValue,
   optionValuesToRestPayload,
@@ -197,6 +198,11 @@ export default function ShopifyVariantsEditor({
     [mco, variants],
   );
 
+  const customerOptionTypes = useMemo(
+    () => filterCustomerOptionTypes(optionTypes),
+    [optionTypes],
+  );
+
   const canDeleteSub = variants.length > 1;
 
   function clearVariantMetadata() {
@@ -236,22 +242,22 @@ export default function ShopifyVariantsEditor({
   }
 
   function validateSubForm(subForm, excludeVariantId = null) {
-    if (!optionTypes.length) {
+    if (!customerOptionTypes.length) {
       return 'Add variant types before creating sub-variants.';
     }
-    for (const type of optionTypes) {
+    for (const type of customerOptionTypes) {
       if (!subForm.selectedByName[type.name]) {
         return `Select a value for ${type.name}.`;
       }
     }
     const productErr = validateOptionSelectionsAgainstProduct(
-      optionTypes,
+      customerOptionTypes,
       subForm.selectedByName,
       shopifyOptions,
     );
     if (productErr) return productErr;
     return validateNonKaratOptionUniqueness(
-      optionTypes,
+      customerOptionTypes,
       subForm.selectedByName,
       variants,
       mainVariant,
@@ -279,7 +285,7 @@ export default function ShopifyVariantsEditor({
     clearVariantMetadata();
     setRowError('');
     setEditingId(mainVariant.id);
-    setForm(subFormFromVariant(mainVariant, optionTypes, shopifyOptions));
+    setForm(subFormFromVariant(mainVariant, customerOptionTypes, shopifyOptions));
     refreshFormPriceFromFn6(mco);
   }
 
@@ -295,7 +301,7 @@ export default function ShopifyVariantsEditor({
     setRowError('');
     try {
       const restOptions = optionValuesToRestPayload(
-        optionTypes,
+        customerOptionTypes,
         form.selectedByName,
         shopifyOptions,
       );
@@ -325,7 +331,7 @@ export default function ShopifyVariantsEditor({
     clearVariantMetadata();
     setRowError('');
     setEditingId(variant.id);
-    setForm(subFormFromVariant(variant, optionTypes, shopifyOptions));
+    setForm(subFormFromVariant(variant, customerOptionTypes, shopifyOptions));
     refreshFormPriceFromFn6(variant.sku);
   }
 
@@ -346,7 +352,7 @@ export default function ShopifyVariantsEditor({
     setRowError('');
     try {
       const restOptions = optionValuesToRestPayload(
-        optionTypes,
+        customerOptionTypes,
         form.selectedByName,
         shopifyOptions,
       );
@@ -396,7 +402,7 @@ export default function ShopifyVariantsEditor({
     }
   }
 
-  const optionHeaders = optionTypes.map(t => t.name);
+  const optionHeaders = customerOptionTypes.map(t => t.name);
   const headClass = 'text-xs font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap';
 
   return (
@@ -425,7 +431,7 @@ export default function ShopifyVariantsEditor({
                     <Badge variant="default">Main</Badge>
                   </TableCell>
                   <SubVariantFormRow
-                    optionTypes={optionTypes}
+                    optionTypes={customerOptionTypes}
                     shopifyOptions={shopifyOptions}
                     variants={variants}
                     mainVariant={mainVariant}
@@ -458,8 +464,8 @@ export default function ShopifyVariantsEditor({
                   <TableCell>
                     <Badge variant="default">Main</Badge>
                   </TableCell>
-                  {optionTypes.map(type => {
-                    const selected = variantToOptionPayload(mainVariant, optionTypes, shopifyOptions);
+                  {customerOptionTypes.map(type => {
+                    const selected = variantToOptionPayload(mainVariant, customerOptionTypes, shopifyOptions);
                     return (
                       <TableCell key={type.name} className="text-muted-foreground text-sm">
                         {effectiveOptionSelection(selected, type.name) || '—'}
@@ -481,7 +487,7 @@ export default function ShopifyVariantsEditor({
                         size="icon-sm"
                         variant="outline"
                         onClick={startEditMain}
-                        disabled={editingId != null || !optionTypes.length}
+                        disabled={editingId != null || !customerOptionTypes.length}
                         aria-label="Edit variant"
                       >
                         <Pencil size={14} />
@@ -503,7 +509,7 @@ export default function ShopifyVariantsEditor({
                       </Badge>
                     </TableCell>
                     <SubVariantFormRow
-                      optionTypes={optionTypes}
+                      optionTypes={customerOptionTypes}
                       shopifyOptions={shopifyOptions}
                       variants={variants}
                       mainVariant={mainVariant}
@@ -526,7 +532,7 @@ export default function ShopifyVariantsEditor({
                   </TableRow>
                 );
               }
-              const selected = variantToOptionPayload(v, optionTypes, shopifyOptions);
+              const selected = variantToOptionPayload(v, customerOptionTypes, shopifyOptions);
               const rowSku = v.sku ? String(v.sku) : '';
               const isMetaSelected = rowSku && metaSku === rowSku;
               return (
@@ -543,7 +549,7 @@ export default function ShopifyVariantsEditor({
                       Sub
                     </Badge>
                   </TableCell>
-                  {optionTypes.map(type => (
+                  {customerOptionTypes.map(type => (
                     <TableCell key={type.name} className="text-muted-foreground">
                       {effectiveOptionSelection(selected, type.name) || '—'}
                     </TableCell>
@@ -561,7 +567,7 @@ export default function ShopifyVariantsEditor({
                       size="icon-sm"
                       variant="outline"
                       onClick={() => startEditSub(v)}
-                      disabled={editingId != null || !optionTypes.length}
+                      disabled={editingId != null || !customerOptionTypes.length}
                       aria-label="Edit sub-variant"
                     >
                       <Pencil size={14} />
@@ -630,7 +636,7 @@ export default function ShopifyVariantsEditor({
           variant="outline"
           size="sm"
           onClick={() => setAddFromCodeOpen(true)}
-          disabled={editingId != null || !optionTypes.length || variantTypesDirty}
+          disabled={editingId != null || !customerOptionTypes.length || variantTypesDirty}
         >
           <Plus size={14} className="mr-1" />
           Add sub-variant
@@ -640,7 +646,7 @@ export default function ShopifyVariantsEditor({
           <p className="text-xs text-amber-700 dark:text-amber-500">
             Save variant types above before adding sub-variants.
           </p>
-        ) : !optionTypes.length ? (
+        ) : !customerOptionTypes.length ? (
           <p className="text-xs text-muted-foreground">
             Configure variant types above before adding sub-variants.
           </p>
@@ -656,7 +662,7 @@ export default function ShopifyVariantsEditor({
         onOpenChange={setAddFromCodeOpen}
         mco={mco}
         productId={productId}
-        optionTypes={optionTypes}
+        optionTypes={customerOptionTypes}
         shopifyOptions={shopifyOptions}
         variants={variants}
         mainVariant={mainVariant}
@@ -672,7 +678,7 @@ export default function ShopifyVariantsEditor({
           <DialogHeader>
             <DialogTitle>Delete variant?</DialogTitle>
             <DialogDescription>
-              Remove {variantDeleteLabel(deleteTarget, optionTypes, shopifyOptions)} from Shopify. This cannot be undone.
+              Remove {variantDeleteLabel(deleteTarget, customerOptionTypes, shopifyOptions)} from Shopify. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row justify-end gap-2">

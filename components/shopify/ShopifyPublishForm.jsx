@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, ImageIcon, Loader2, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { fn6Quantity, shopifyInventoryPayloadFromGwebQty } from '../../lib/fn6ItemFields';
+import { fn6Quantity, formatFn6Weight, shopifyInventoryPayloadFromGwebQty } from '../../lib/fn6ItemFields';
+import { formatGwebWeightDisplay } from '../../lib/gwebWeightMetafield';
 import { buildDefaultDescription, buildDefaultSpec, splitBodyHtml } from '../../lib/fn6Spec';
 import { getItemImageUrls } from '../../lib/mediaUrl';
 import {
@@ -58,8 +59,13 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
 
   const itemPrice = useMemo(() => {
     if (item.price == null || item.price === '') return '';
-    return String(Math.round(Number(item.price)));
+    return String(Math.round(Number(item.price) / 5) * 5);
   }, [item.price]);
+
+  const itemWeightLabel = useMemo(
+    () => formatGwebWeightDisplay(item.go_cr) || formatFn6Weight(item),
+    [item.go_cr, item],
+  );
 
   const imageUrls = useMemo(() => getItemImageUrls(item), [item]);
   const mediaImageCount = imageUrls.length;
@@ -404,6 +410,20 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
           />
           <p className="text-xs text-muted-foreground mt-1">
             Price is set automatically from the live gold price.
+          </p>
+        </div>
+        <div className="form-row">
+          <label className="form-label">Weight (GWEB)</label>
+          <Input
+            type="text"
+            value={itemWeightLabel}
+            readOnly
+            disabled
+            placeholder="—"
+            className="bg-muted/50 cursor-not-allowed"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Weight is stored on the Shopify variant as custom.gweb_weight (not a customer option).
           </p>
         </div>
         {isListed && (

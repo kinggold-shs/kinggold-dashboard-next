@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { refreshVariantPrice } from '../../../../lib/refreshVariantPrice';
 import { getShopifyToken } from '../../../../lib/shopify';
 import {
   applyVariantInventoryFromBody,
@@ -58,6 +59,14 @@ export async function POST(request) {
           { error: `Product published but inventory sync failed: ${inventoryErr.message}` },
           { status: 502 },
         );
+      }
+    }
+
+    if (sku) {
+      try {
+        await refreshVariantPrice(String(sku));
+      } catch {
+        // publish succeeded; live GWEB sync is best-effort
       }
     }
 
