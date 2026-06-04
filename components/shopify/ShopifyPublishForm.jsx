@@ -35,7 +35,13 @@ function mediaUrlOnShopify(src, shopifyImages) {
   return shopifyImages.some(img => urlPathKey(img.url) === key || img.url === src);
 }
 
-export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesChange, onMediaChange }) {
+export default function ShopifyPublishForm({
+  item,
+  mediaBusy,
+  onShopifyImagesChange,
+  onMediaChange,
+  onShopifyListingUpdated,
+}) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
   const [status, setStatus] = useState('active');
@@ -154,6 +160,7 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
       setSuccessMsg('Published to Shopify');
       setShopUrl(data.shopUrl || null);
       await loadShopify();
+      onShopifyListingUpdated?.();
     } catch (err) {
       setPubError(err.message || 'Failed to publish');
     } finally {
@@ -188,6 +195,7 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
       });
       setSuccessMsg('Shopify product updated');
       await loadShopify();
+      onShopifyListingUpdated?.();
     } catch (err) {
       setPubError(err.message || 'Failed to update');
     } finally {
@@ -206,6 +214,7 @@ export default function ShopifyPublishForm({ item, mediaBusy, onShopifyImagesCha
       setSuccessMsg('Removed from Shopify');
       setConfirmDelete(false);
       await loadShopify();
+      onShopifyListingUpdated?.();
     } catch (err) {
       setPubError(err.message || 'Failed to delete');
     } finally {

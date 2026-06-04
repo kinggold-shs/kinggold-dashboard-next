@@ -34,6 +34,11 @@ export default function ItemsManagementTab({ initialSku }) {
   const [error, setError] = useState('');
   const [mediaBusy, setMediaBusy] = useState(false);
   const [shopifyImageCount, setShopifyImageCount] = useState(0);
+  const [variantsRefreshKey, setVariantsRefreshKey] = useState(0);
+
+  const handleShopifyListingUpdated = useCallback(() => {
+    setVariantsRefreshKey(k => k + 1);
+  }, []);
 
   const loadByCode = useCallback(async (codeValue) => {
     const code = String(codeValue || '').trim();
@@ -115,7 +120,6 @@ export default function ItemsManagementTab({ initialSku }) {
             </CardHeader>
             <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
               <div><span className="text-muted-foreground">Code:</span> <code>{item.mco}</code></div>
-              <div><span className="text-muted-foreground">Name:</span> {item.idis || DASH}</div>
               <div><span className="text-muted-foreground">Weight:</span> {item.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH}</div>
               <div><span className="text-muted-foreground">Quantity:</span> {item.qt ?? DASH}</div>
               <div><span className="text-muted-foreground">Total Price:</span> {formatCurrency(item.price)}</div>
@@ -140,6 +144,7 @@ export default function ItemsManagementTab({ initialSku }) {
                 mediaBusy={mediaBusy}
                 onShopifyImagesChange={setShopifyImageCount}
                 onMediaChange={refreshItem}
+                onShopifyListingUpdated={handleShopifyListingUpdated}
               />
             </CardContent>
           </Card>
@@ -152,7 +157,7 @@ export default function ItemsManagementTab({ initialSku }) {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-2">
-              <VariantsPanel key={item.mco} item={item} />
+              <VariantsPanel key={`${item.mco}-${variantsRefreshKey}`} item={item} />
             </CardContent>
           </Card>
         </>
@@ -175,3 +180,5 @@ export default function ItemsManagementTab({ initialSku }) {
     </div>
   );
 }
+
+

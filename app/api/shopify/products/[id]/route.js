@@ -16,16 +16,6 @@ export async function PUT(request, { params }) {
       update.images = body.images;
     }
 
-    if (body.price !== undefined) {
-      const variantPayload = {
-        price: String(Number(body.price).toFixed(2)),
-      };
-      if (body.variant_id != null) {
-        variantPayload.id = Number(body.variant_id);
-      }
-      update.variants = [variantPayload];
-    }
-
     const res = await fetch(`https://${domain}/admin/api/2024-10/products/${id}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
@@ -36,6 +26,29 @@ export async function PUT(request, { params }) {
     if (!res.ok) {
       const errMsg = typeof data.errors === 'object' ? JSON.stringify(data.errors) : (data.errors || 'Shopify API error');
       return NextResponse.json({ error: errMsg }, { status: res.status });
+    }
+
+    if (body.price !== undefined && body.variant_id != null) {
+      const variantId = Number(body.variant_id);
+      const price = String(Number(body.price).toFixed(2));
+      const variantRes = await fetch(
+        `https://${domain}/admin/api/2024-10/variants/${variantId}.json`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+          body: JSON.stringify({ variant: { id: variantId, price } }),
+        },
+      );
+      const variantData = await variantRes.json().catch(() => ({}));
+      if (!variantRes.ok) {
+        const errMsg = typeof variantData.errors === 'object'
+          ? JSON.stringify(variantData.errors)
+          : (variantData.errors || 'Failed to update variant price on Shopify');
+        return NextResponse.json(
+          { error: `Product updated but main variant price failed: ${errMsg}` },
+          { status: 502 },
+        );
+      }
     }
 
     return NextResponse.json({ product: data.product });

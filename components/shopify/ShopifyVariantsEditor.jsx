@@ -181,6 +181,8 @@ export default function ShopifyVariantsEditor({
   const [saving, setSaving] = useState(false);
   const [rowError, setRowError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [pendingDeleteVariantId, setPendingDeleteVariantId] = useState(null);
+  const [deleteDialogError, setDeleteDialogError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [addFromCodeOpen, setAddFromCodeOpen] = useState(false);
   const [metaSku, setMetaSku] = useState(null);
@@ -203,7 +205,20 @@ export default function ShopifyVariantsEditor({
     [optionTypes],
   );
 
-  const canDeleteSub = variants.length > 1;
+  const canDeleteSub = subVariants.length > 0 && variants.length > 1;
+
+  function openDeleteDialog(variant) {
+    setDeleteTarget(variant);
+    setPendingDeleteVariantId(variant.id);
+    setDeleteDialogError('');
+    setRowError('');
+  }
+
+  function closeDeleteDialog() {
+    setDeleteTarget(null);
+    setPendingDeleteVariantId(null);
+    setDeleteDialogError('');
+  }
 
   function clearVariantMetadata() {
     setMetaSku(null);
@@ -386,17 +401,39 @@ export default function ShopifyVariantsEditor({
   }
 
   async function confirmDelete() {
-    if (!deleteTarget || !mainVariant || Number(deleteTarget.id) === Number(mainVariant.id)) return;
+    const variantId = pendingDeleteVariantId ?? deleteTarget?.id;
+    if (variantId == null) {
+      const msg = 'No variant selected for deletion.';
+      setDeleteDialogError(msg);
+      setRowError(msg);
+      return;
+    }
+    if (!mainVariant) {
+      const msg = 'Main variant is missing — reload the variants list.';
+      setDeleteDialogError(msg);
+      setRowError(msg);
+      return;
+    }
+    if (Number(variantId) === Number(mainVariant.id)) {
+      const msg = 'The main variant cannot be deleted here.';
+      setDeleteDialogError(msg);
+      setRowError(msg);
+      return;
+    }
+
     setDeleting(true);
+    setDeleteDialogError('');
     setRowError('');
     try {
-      await deleteShopifyVariant(productId, deleteTarget.id);
-      setDeleteTarget(null);
-      if (editingId != null && Number(editingId) === Number(deleteTarget.id)) cancelEdit();
+      await deleteShopifyVariant(productId, variantId);
+      closeDeleteDialog();
+      if (editingId != null && Number(editingId) === Number(variantId)) cancelEdit();
       await onRefresh();
       onVariantsChanged?.();
     } catch (err) {
-      setRowError(err.message || 'Failed to delete variant');
+      const msg = err.message || 'Failed to delete variant';
+      setDeleteDialogError(msg);
+      setRowError(msg);
     } finally {
       setDeleting(false);
     }
@@ -577,7 +614,7 @@ export default function ShopifyVariantsEditor({
                         size="icon-sm"
                         variant="outline"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(v)}
+                        onClick={() => openDeleteDialog(v)}
                         disabled={editingId != null}
                         aria-label="Delete sub-variant"
                       >
@@ -673,7 +710,7 @@ export default function ShopifyVariantsEditor({
         }}
       />
 
-      <Dialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
+      <Dialog open={!!deleteTarget} onOpenChange={open => !open && !deleting && closeDeleteDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete variant?</DialogTitle>
@@ -681,8 +718,14 @@ export default function ShopifyVariantsEditor({
               Remove {variantDeleteLabel(deleteTarget, customerOptionTypes, shopifyOptions)} from Shopify. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {deleteDialogError ? (
+            <Alert variant="destructive" className="py-2.5">
+              <AlertCircle className="size-4" />
+              <AlertDescription>{deleteDialogError}</AlertDescription>
+            </Alert>
+          ) : null}
           <DialogFooter className="flex-row justify-end gap-2">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+            <Button variant="outline" onClick={closeDeleteDialog} disabled={deleting}>
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
