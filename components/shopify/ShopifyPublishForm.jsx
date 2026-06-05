@@ -9,15 +9,16 @@ import { formatGwebWeightDisplay } from '../../lib/gwebWeightMetafield';
 import { buildDefaultDescription, buildDefaultSpec, splitBodyHtml } from '../../lib/fn6Spec';
 import { getItemImageUrls } from '../../lib/mediaUrl';
 import {
-  PRODUCT_TYPES,
   addShopifyProductImage,
   buildPublishPayload,
+  fetchShopifyCollections,
   lookupShopifyProduct,
   publishShopifyItem,
   removeShopifyItem,
   removeShopifyProductImage,
   updateShopifyItem,
 } from '../../lib/shopifyItemWorkflow';
+import ProductOrganization from './ProductOrganization';
 
 function urlPathKey(url) {
   if (!url) return '';
@@ -44,6 +45,11 @@ export default function ShopifyPublishForm({
 }) {
   const [title, setTitle] = useState(item.idis || `Gold Item ${item.mco}`);
   const [productType, setProductType] = useState('Ring');
+  const [vendor, setVendor] = useState('KingGold');
+  const [tags, setTags] = useState([]);
+  const [collectionsAvailable, setCollectionsAvailable] = useState([]);
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState([]);
+  const [hydratedCollections, setHydratedCollections] = useState(null);
   const [status, setStatus] = useState('active');
   const [description, setDescription] = useState(() => buildDefaultDescription(item));
   const [spec, setSpec] = useState(() => buildDefaultSpec(item));
@@ -91,6 +97,10 @@ export default function ShopifyPublishForm({
     onShopifyImagesChange?.(0);
     setTitle(item.idis || `Gold Item ${item.mco}`);
     setProductType('Ring');
+    setVendor('KingGold');
+    setTags([]);
+    setSelectedCollectionIds([]);
+    setHydratedCollections(null);
     setStatus('active');
     setDescription(buildDefaultDescription(item));
     setSpec(buildDefaultSpec(item));
@@ -109,6 +119,10 @@ export default function ShopifyPublishForm({
         setVariantId(data.variantId);
         setTitle(data.title || item.idis || `Gold Item ${item.mco}`);
         setProductType(data.product_type || 'Ring');
+        setVendor(data.vendor || 'KingGold');
+        setTags(Array.isArray(data.tags) ? data.tags : []);
+        setSelectedCollectionIds([]);
+        setHydratedCollections(data.collections || []);
         setStatus(data.status || 'active');
         const split = splitBodyHtml(data.body_html, item);
         setDescription(split.description);
@@ -133,6 +147,22 @@ export default function ShopifyPublishForm({
   }, [loadShopify]);
 
   useEffect(() => {
+    fetchShopifyCollections()
+      .then(data => setCollectionsAvailable(data.collections || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (hydratedCollections === null || collectionsAvailable.length === 0) return;
+    const customIds = new Set(collectionsAvailable.map(c => Number(c.id)));
+    setSelectedCollectionIds(
+      hydratedCollections
+        .map(c => Number(c.id))
+        .filter(id => customIds.has(id)),
+    );
+  }, [hydratedCollections, collectionsAvailable]);
+
+  useEffect(() => {
     if (mediaImageCount > 0 && shopifyImageCount === 0) {
       setReplaceImages(true);
     }
@@ -153,6 +183,9 @@ export default function ShopifyPublishForm({
           status,
           sku: item.mco,
           imageUrls,
+          vendor,
+          tags,
+          collectionIds: selectedCollectionIds,
         }),
         ...shopifyInventoryPayloadFromGwebQty(fn6Quantity(item)),
       };
@@ -183,11 +216,17 @@ export default function ShopifyPublishForm({
         status,
         sku: item.mco,
         imageUrls,
+        vendor,
+        tags,
+        collectionIds: selectedCollectionIds,
       });
       await updateShopifyItem(productId, {
         title: payload.title,
         body_html: payload.body_html,
         product_type: payload.product_type,
+        vendor: payload.vendor,
+        tags: payload.tags,
+        collectionIds: payload.collectionIds,
         price: payload.price,
         status: payload.status,
         variant_id: variantId,
@@ -401,12 +440,17 @@ export default function ShopifyPublishForm({
           <label className="form-label">Product Name</label>
           <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Product title" />
         </div>
-        <div className="form-row">
-          <label className="form-label">Product Type</label>
-          <select value={productType} onChange={e => setProductType(e.target.value)} className="form-select">
-            {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
+        <ProductOrganization
+          productType={productType}
+          onProductTypeChange={setProductType}
+          vendor={vendor}
+          onVendorChange={setVendor}
+          tags={tags}
+          onTagsChange={setTags}
+          collectionsAvailable={collectionsAvailable}
+          selectedCollectionIds={selectedCollectionIds}
+          onSelectedCollectionIdsChange={setSelectedCollectionIds}
+        />
         <div className="form-row">
           <label className="form-label">Price (EGP)</label>
           <Input

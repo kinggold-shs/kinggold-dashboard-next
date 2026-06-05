@@ -10,7 +10,7 @@ import {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { title, body_html, product_type, price, sku, images } = body;
+    const { title, body_html, product_type, price, sku, images, vendor, tags, collectionIds } = body;
     const { token, domain } = await getShopifyToken();
 
     const inventoryQty = parseInventoryQuantityFromBody(body);
@@ -26,7 +26,8 @@ export async function POST(request) {
       product: {
         title,
         body_html,
-        vendor: 'KingGold',
+        vendor: vendor || 'KingGold',
+        tags: tags || '',
         product_type: product_type || 'Gold Jewelry',
         status: 'active',
         variants: [variantFields],
@@ -70,9 +71,40 @@ export async function POST(request) {
       }
     }
 
+    const collectWarnings = [];
+    const productId = data.product?.id;
+    if (productId && Array.isArray(collectionIds) && collectionIds.length > 0) {
+      for (const collectionId of collectionIds) {
+        const cid = Number(collectionId);
+        if (!cid) continue;
+        try {
+          const collectRes = await fetch(`https://${domain}/admin/api/2024-10/collects.json`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Shopify-Access-Token': token,
+            },
+            body: JSON.stringify({
+              collect: { product_id: productId, collection_id: cid },
+            }),
+          });
+          if (!collectRes.ok) {
+            const collectData = await collectRes.json().catch(() => ({}));
+            const errMsg = typeof collectData.errors === 'object'
+              ? JSON.stringify(collectData.errors)
+              : (collectData.errors || `HTTP ${collectRes.status}`);
+            collectWarnings.push(`collection ${cid}: ${errMsg}`);
+          }
+        } catch (collectErr) {
+          collectWarnings.push(`collection ${cid}: ${collectErr.message}`);
+        }
+      }
+    }
+
     return NextResponse.json({
       product: data.product,
       shopUrl: `https://${domain}/products/${data.product.handle}`,
+      ...(collectWarnings.length > 0 ? { collectWarnings } : {}),
     });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
