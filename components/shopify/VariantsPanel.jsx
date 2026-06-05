@@ -16,6 +16,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
+import RepairVariantOptionsButton from './RepairVariantOptionsButton';
 import ShopifyVariantsEditor from './ShopifyVariantsEditor';
 import VariantTypesEditor from './VariantTypesEditor';
 
@@ -165,10 +166,15 @@ export default function VariantsPanel({ item }) {
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Tags size={16} className="text-gold-600 shrink-0" />
             <h4 className="text-sm font-semibold text-foreground">Shopify variants</h4>
             <Badge variant="secondary">{variants.length}</Badge>
+            <RepairVariantOptionsButton
+              productId={productId}
+              mco={item.mco}
+              onRefresh={onRefresh}
+            />
           </div>
           {subSkus.length > 0 ? (
             <p className="text-xs text-muted-foreground w-full sm:w-auto sm:text-right">
