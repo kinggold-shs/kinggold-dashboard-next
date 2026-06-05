@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ShoppingBag } from 'lucide-react';
 import DashboardShell from '../../components/DashboardShell';
+import BulkRepairVariantOptionsButton from '../../components/shopify/BulkRepairVariantOptionsButton';
 import ItemsListTab from '../../components/shopify/ItemsListTab';
 import ItemsManagementTab from '../../components/shopify/ItemsManagementTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
@@ -26,14 +27,19 @@ export default function ShopifyPage() {
   return (
     <DashboardShell>
       <div className="space-y-5">
-        <div className="shopify-page-header">
-          <div className="flex items-center gap-2">
-            <ShoppingBag size={20} />
-            <h1 className="text-xl font-bold tracking-tight">Shopify Items</h1>
+        <div className="shopify-page-header space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShoppingBag size={20} />
+                <h1 className="text-xl font-bold tracking-tight">Shopify Items</h1>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Browse products in Items List, then open complete CRUD workflows in Items Management.
+              </p>
+            </div>
+            <BulkRepairVariantOptionsButton />
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Browse products in Items List, then open complete CRUD workflows in Items Management.
-          </p>
         </div>
 
         <Tabs
