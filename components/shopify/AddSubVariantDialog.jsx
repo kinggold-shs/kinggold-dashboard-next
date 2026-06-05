@@ -19,7 +19,6 @@ import {
 import {
   filterCustomerOptionTypes,
   getOptionSelectUiState,
-  optionValuesToRestPayload,
   resolveOptionCatalogValues,
   validateNonKaratOptionUniqueness,
   validateOptionSelectionsAgainstProduct,
@@ -381,13 +380,8 @@ export default function AddSubVariantDialog({
     setSaving(true);
     setFormError('');
     try {
-      const restOptions = optionValuesToRestPayload(
-        customerOptionTypes,
-        selectedByName,
-        shopifyOptions,
-      );
       const payload = {
-        ...restOptions,
+        selections: selectedByName,
         sku: String(selected.mco),
         price: derivedPrice,
       };

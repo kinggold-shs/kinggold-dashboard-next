@@ -18,8 +18,19 @@ import {
 
 const OPTION_FIELDS = ['option1', 'option2', 'option3'];
 
-/** Build selectedByName from request body using Shopify option positions (not UI index). */
+/** Prefer body.selections by name; fall back to option1/2/3 by Shopify position. */
 function selectedByNameFromBody(body, shopifyOptions, optionTypes) {
+  if (body.selections && typeof body.selections === 'object') {
+    const selectedByName = {};
+    for (const type of optionTypes) {
+      const raw = body.selections[type.name];
+      if (raw != null && String(raw).trim()) {
+        selectedByName[type.name] = String(raw).trim();
+      }
+    }
+    return selectedByName;
+  }
+
   const selectedByName = {};
   for (const type of optionTypes) {
     const idx = resolveOptionFieldIndex(shopifyOptions, type.name);

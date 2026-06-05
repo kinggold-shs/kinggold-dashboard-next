@@ -41,7 +41,6 @@ import {
   filterCustomerOptionTypes,
   getOptionSelectUiState,
   isPlaceholderOptionValue,
-  optionValuesToRestPayload,
   resolveOptionCatalogValues,
   validateNonKaratOptionUniqueness,
   validateOptionSelectionsAgainstProduct,
@@ -315,11 +314,6 @@ export default function ShopifyVariantsEditor({
     setSaving(true);
     setRowError('');
     try {
-      const restOptions = optionValuesToRestPayload(
-        customerOptionTypes,
-        form.selectedByName,
-        shopifyOptions,
-      );
       let price = form.price;
       try {
         const res = await fn6Api.getByMco(mco);
@@ -329,7 +323,7 @@ export default function ShopifyVariantsEditor({
         // keep form.price
       }
       await updateShopifyVariant(productId, mainVariant.id, {
-        ...restOptions,
+        selections: form.selectedByName,
         price,
       });
       cancelEdit();
@@ -366,11 +360,6 @@ export default function ShopifyVariantsEditor({
     setSaving(true);
     setRowError('');
     try {
-      const restOptions = optionValuesToRestPayload(
-        customerOptionTypes,
-        form.selectedByName,
-        shopifyOptions,
-      );
       let inventoryPayload = {};
       let price = form.price;
       const skuCode = String(form.sku || '').trim();
@@ -385,7 +374,7 @@ export default function ShopifyVariantsEditor({
         }
       }
       await updateShopifyVariant(productId, editingId, {
-        ...restOptions,
+        selections: form.selectedByName,
         sku: form.sku,
         price,
         ...inventoryPayload,
