@@ -12,6 +12,7 @@ import {
   productOptionTypes,
   resolveOptionFieldIndex,
   resolveSubVariantOptionSelections,
+  SUB_VARIANT_DISCRIMINATOR_OPTION,
   validateOptionSelectionsAgainstProduct,
 } from '../../../../../../../lib/variantModel';
 
@@ -84,7 +85,7 @@ export async function PUT(request, { params }) {
         domain,
         token,
         id,
-        selectedByName.Code,
+        selectedByName[SUB_VARIANT_DISCRIMINATOR_OPTION],
       );
     }
 

@@ -60,6 +60,7 @@ import {
 
 import {
 
+  DEFAULT_KARAT_PRESET,
   defaultVariantTypesForNewProduct,
 
   isPlaceholderOptionName,
@@ -286,7 +287,7 @@ export default function VariantTypesEditor({
 
     if (trimmed.toLowerCase() === 'karat' && !values.length) {
 
-      values = ['18K'];
+      values = [...DEFAULT_KARAT_PRESET];
 
     }
 

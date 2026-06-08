@@ -1,14 +1,20 @@
 /**
- * Focused regression checks for Size duplicate UI + validation + Shopify option3 discriminator.
+ * Regression checks for global duplicate selection + Shopify discriminator strategies.
  * Run: npx tsx scripts/variantModel-size-share-check.mjs
  */
 import {
+  applyShopifyOnlyOptionSuffix,
+  customerOptionComboKey,
   filterCustomerOptionTypes,
   getOptionSelectUiState,
+  hasDuplicateCustomerOptionCombo,
   hasDuplicatePrimaryOptionCombo,
   resolveSubVariantOptionSelections,
+  stripShopifyOnlyOptionSuffix,
   SUB_VARIANT_DISCRIMINATOR_OPTION,
+  SUB_VARIANT_VALUE_SUFFIX_SEP,
   validateNonKaratOptionUniqueness,
+  variantToOptionPayload,
   isSizeOption,
 } from '../lib/variantModel.js';
 
@@ -56,55 +62,34 @@ assert(
   'isSizeOption at position 2 when Karat is option1',
 );
 
-console.log('\nRing Size duplicate 52 — UI state');
+console.log('\nGlobal duplicates — Ring Size UI state');
 const ui = getOptionSelectUiState({
   typeName: 'Ring Size',
   catalogValues: ['50', '52', '54'],
-  variants,
-  mainVariant,
-  optionTypes,
-  shopifyOptions,
-  excludeVariantId: null,
-  currentValue: '',
 });
 assert(ui.selectableValues.length === 3, 'full catalog in selectableValues');
 assert(!ui.hint, 'no exhaustion hint');
 assert(!ui.disableSelect, 'select not disabled');
 
-console.log('\nRing Size duplicate 52 — validation');
-const sizeOnlyTypes = optionTypes.filter(t => t.name !== 'Color');
-const validationErr = validateNonKaratOptionUniqueness(
-  sizeOnlyTypes,
-  { Karat: '18K', 'Ring Size': '52' },
-  variants,
-  mainVariant,
-  { shopifyOptions },
-);
-assert(validationErr === null, 'no validation error for duplicate Size');
-
-console.log('\nColor still enforces uniqueness');
+console.log('\nGlobal duplicates — Color UI state');
 const colorUi = getOptionSelectUiState({
   typeName: 'Color',
   catalogValues: ['Yellow', 'White'],
-  variants,
-  mainVariant,
-  optionTypes,
-  shopifyOptions,
-  excludeVariantId: null,
-  currentValue: '',
 });
-assert(colorUi.selectableValues.length < 2, 'Color filters used values');
+assert(colorUi.selectableValues.length === 2, 'Color shows full catalog');
+assert(!colorUi.hint, 'no Color exhaustion hint');
 
-const colorErr = validateNonKaratOptionUniqueness(
+console.log('\nGlobal duplicates — validation no-op');
+const validationErr = validateNonKaratOptionUniqueness(
   optionTypes,
-  { Karat: '18K', 'Ring Size': '50', Color: 'Yellow' },
+  { Karat: '18K', 'Ring Size': '52', Color: 'Yellow' },
   variants,
   mainVariant,
   { shopifyOptions },
 );
-assert(colorErr !== null, 'Color duplicate blocked');
+assert(validationErr === null, 'no validation error for any duplicate');
 
-console.log('\nKarat+Size only — duplicate combo detection');
+console.log('\nTwo-option product — duplicate combo detection');
 const twoOptionShopify = [
   { name: 'Karat', position: 1, values: ['18K'] },
   { name: 'Size', position: 2, values: ['1', '2'] },
@@ -117,16 +102,25 @@ const main18k1 = { id: 10, option1: '18K', option2: '1', sku: 'MAIN001' };
 const subs18k1 = [main18k1];
 
 assert(
+  hasDuplicateCustomerOptionCombo(
+    { Karat: '18K', Size: '1' },
+    subs18k1,
+    twoOptionShopify,
+    twoOptionTypes,
+  ),
+  'detects duplicate full combo on existing variant',
+);
+assert(
   hasDuplicatePrimaryOptionCombo(
     { Karat: '18K', Size: '1' },
     subs18k1,
     twoOptionShopify,
     twoOptionTypes,
   ),
-  'detects duplicate Karat+Size on existing variant',
+  'legacy hasDuplicatePrimaryOptionCombo delegates',
 );
 assert(
-  !hasDuplicatePrimaryOptionCombo(
+  !hasDuplicateCustomerOptionCombo(
     { Karat: '18K', Size: '2' },
     subs18k1,
     twoOptionShopify,
@@ -135,7 +129,7 @@ assert(
   'no duplicate when Size differs',
 );
 
-console.log('\nKarat+Size duplicate — auto Code discriminator');
+console.log('\nTwo-option duplicate — auto Code discriminator');
 const resolved = resolveSubVariantOptionSelections({
   selectedByName: { Karat: '18K', Size: '1' },
   sku: 'SUB456',
@@ -144,6 +138,7 @@ const resolved = resolveSubVariantOptionSelections({
   optionTypes: twoOptionTypes,
 });
 assert(resolved.discriminatorApplied, 'discriminator applied for duplicate combo');
+assert(!resolved.suffixApplied, 'no suffix when <3 customer types');
 assert(
   resolved.selectedByName[SUB_VARIANT_DISCRIMINATOR_OPTION] === 'SUB456',
   'Code set to FN6 SKU',
@@ -158,6 +153,80 @@ const missingSku = resolveSubVariantOptionSelections({
   optionTypes: twoOptionTypes,
 });
 assert(missingSku.error !== null, 'error when duplicate combo and no SKU');
+
+console.log('\nThree-option product — suffix discriminator (not Code)');
+const threeOptionShopify = [
+  { name: 'Karat', position: 1, values: ['18K'] },
+  { name: 'Size', position: 2, values: ['52'] },
+  { name: 'gm', position: 3, values: ['5gm'] },
+];
+const threeOptionTypes = [
+  { name: 'Karat', values: ['18K'] },
+  { name: 'Size', values: ['52'] },
+  { name: 'gm', values: ['5gm'] },
+];
+const main3 = { id: 20, option1: '18K', option2: '52', option3: '5gm', sku: 'MAIN020' };
+const subs3 = [main3];
+
+assert(
+  hasDuplicateCustomerOptionCombo(
+    { Karat: '18K', Size: '52', gm: '5gm' },
+    subs3,
+    threeOptionShopify,
+    threeOptionTypes,
+  ),
+  'detects duplicate Karat+Size+gm combo',
+);
+
+const suffixResolved = resolveSubVariantOptionSelections({
+  selectedByName: { Karat: '18K', Size: '52', gm: '5gm' },
+  sku: 'SUB789',
+  variants: subs3,
+  shopifyOptions: threeOptionShopify,
+  optionTypes: threeOptionTypes,
+});
+assert(!suffixResolved.discriminatorApplied, 'no Code when 3 customer types');
+assert(suffixResolved.suffixApplied, 'suffix applied on last option');
+assert(
+  suffixResolved.selectedByName.gm === `5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`,
+  'gm suffixed with SKU for Shopify',
+);
+assert(
+  !suffixResolved.selectedByName[SUB_VARIANT_DISCRIMINATOR_OPTION],
+  'Code not set when 3 customer types',
+);
+
+console.log('\nSuffix round-trip');
+const suffixed = applyShopifyOnlyOptionSuffix('5gm', 'SUB789');
+assert(
+  suffixed === `5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`,
+  'applyShopifyOnlyOptionSuffix',
+);
+assert(
+  stripShopifyOnlyOptionSuffix(suffixed, 'SUB789') === '5gm',
+  'stripShopifyOnlyOptionSuffix',
+);
+
+console.log('\nCustomer combo key');
+assert(
+  customerOptionComboKey(
+    { Karat: '18K', Size: '52', gm: '5gm' },
+    threeOptionTypes,
+    threeOptionShopify,
+  ).includes('5gm'),
+  'combo key includes all customer dimensions',
+);
+
+console.log('\nvariantToOptionPayload strips suffix for UI');
+const suffixedVariant = {
+  id: 30,
+  sku: 'SUB789',
+  option1: '18K',
+  option2: '52',
+  option3: `5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`,
+};
+const stripped = variantToOptionPayload(suffixedVariant, threeOptionTypes, threeOptionShopify);
+assert(stripped.gm === '5gm', 'suffix stripped from option3 when reading variant');
 
 console.log('\nCode hidden from customer option types');
 const withCode = [
