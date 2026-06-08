@@ -83,9 +83,15 @@ export default function CleanupDiscriminatorsButton() {
     }
   }
 
-  const strippedCount = (result?.results || []).filter(r => r.status === 'stripped' || r.status === 'partial_conflict').length;
+  // Products with actual suffix changes that can be safely applied (no conflict on their stripped value).
+  const strippedCount = (result?.results || []).filter(r => (r.stripped || []).length > 0).length;
+  // Products where ALL suffixed variants conflict — stripped=[], so nothing can be auto-applied.
+  const conflictOnlyCount = (result?.results || []).filter(
+    r => (r.conflicts || []).length > 0 && (r.stripped || []).length === 0,
+  ).length;
   const manualCount = (result?.results || []).filter(r => r.status === 'manual_migration_needed').length;
   const codeSafeCount = (result?.results || []).filter(r => r.status === 'code_safe_to_remove').length;
+  // Only show Apply when there are real changes to write.
   const showApply = result?.dryRun === true && strippedCount > 0;
   const busy = loading || applying;
 
@@ -147,6 +153,9 @@ export default function CleanupDiscriminatorsButton() {
               {strippedCount > 0
                 ? `${result.dryRun ? 'Would strip suffixes from' : 'Stripped suffixes from'} ${strippedCount} product(s). `
                 : ''}
+              {conflictOnlyCount > 0
+                ? `${conflictOnlyCount} product(s) have duplicate last values — need manual fix in Shopify before auto-cleanup is possible. `
+                : ''}
               {manualCount > 0
                 ? `${manualCount} product(s) need manual migration (Code option still in use). `
                 : ''}
@@ -155,8 +164,8 @@ export default function CleanupDiscriminatorsButton() {
                 : ''}
             </p>
 
-            {/* Stripped / suffix-cleaned products */}
-            {(result.results || []).filter(r => r.status === 'stripped' || r.status === 'partial_conflict').length > 0 ? (
+            {/* Products with actual safe changes (stripped.length > 0) */}
+            {(result.results || []).filter(r => (r.stripped || []).length > 0).length > 0 ? (
               <div>
                 <p className="font-medium mb-1">Suffix products (·SKU stripped):</p>
                 <Table>
@@ -170,20 +179,54 @@ export default function CleanupDiscriminatorsButton() {
                   </TableHeader>
                   <TableBody>
                     {(result.results || [])
-                      .filter(r => r.status === 'stripped' || r.status === 'partial_conflict')
+                      .filter(r => (r.stripped || []).length > 0)
                       .map(row => (
                         <TableRow key={row.productId}>
                           <TableCell className="font-medium">{row.title || row.productId}</TableCell>
                           <TableCell><code className="text-xs">{row.sku}</code></TableCell>
                           <TableCell className="text-xs">
-                            {(row.stripped || []).length > 0
-                              ? (row.stripped || []).map(c => `${c.sku}: ${c.from} → ${c.to}`).join('; ')
-                              : '—'}
+                            {(row.stripped || []).map(c => `${c.sku}: ${c.from} → ${c.to}`).join('; ')}
                           </TableCell>
                           <TableCell className="text-xs text-amber-700 dark:text-amber-500">
                             {(row.conflicts || []).length > 0
                               ? (row.conflicts || []).map(c => `${c.sku}: "${c.value}" clashes`).join('; ')
                               : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : null}
+
+            {/* Products where all last-values conflict — cannot be auto-cleaned */}
+            {conflictOnlyCount > 0 ? (
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-500 mb-1">
+                  Cannot auto-clean — duplicate last values ({conflictOnlyCount}):
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Stripping the suffix would create duplicate last-option values on these products.
+                  Open each product in Shopify admin and assign unique last-option values to each variant,
+                  then re-run the dry-run.
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Conflicting variants</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(result.results || [])
+                      .filter(r => (r.conflicts || []).length > 0 && (r.stripped || []).length === 0)
+                      .map(row => (
+                        <TableRow key={row.productId}>
+                          <TableCell className="font-medium">{row.title || row.productId}</TableCell>
+                          <TableCell><code className="text-xs">{row.sku}</code></TableCell>
+                          <TableCell className="text-xs text-amber-700 dark:text-amber-500">
+                            {(row.conflicts || []).map(c => `${c.sku}: "${c.value}" clashes`).join('; ')}
                           </TableCell>
                         </TableRow>
                       ))}
