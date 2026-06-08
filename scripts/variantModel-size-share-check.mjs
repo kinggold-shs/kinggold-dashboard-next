@@ -6,13 +6,16 @@ import {
   applyShopifyOnlyOptionSuffix,
   customerOptionComboKey,
   filterCustomerOptionTypes,
+  filterOptionsForUi,
   getOptionSelectUiState,
   hasDuplicateCustomerOptionCombo,
   hasDuplicatePrimaryOptionCombo,
+  resolveOptionCatalogValues,
   resolveSubVariantOptionSelections,
   stripShopifyOnlyOptionSuffix,
   SUB_VARIANT_DISCRIMINATOR_OPTION,
   SUB_VARIANT_VALUE_SUFFIX_SEP,
+  unionVariantTypesWithLiveValues,
   validateNonKaratOptionUniqueness,
   variantToOptionPayload,
   isSizeOption,
@@ -227,6 +230,44 @@ const suffixedVariant = {
 };
 const stripped = variantToOptionPayload(suffixedVariant, threeOptionTypes, threeOptionShopify);
 assert(stripped.gm === '5gm', 'suffix stripped from option3 when reading variant');
+
+console.log('\nfilterOptionsForUi strips Shopify-only suffix from catalog');
+const suffixedCatalog = filterOptionsForUi([
+  { name: 'gm', values: [`3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`, '5gm'] },
+]);
+assert(
+  suffixedCatalog[0].values.includes('3.070') && !suffixedCatalog[0].values.some(v => v.includes(SUB_VARIANT_VALUE_SUFFIX_SEP)),
+  'filterOptionsForUi shows display values only',
+);
+
+console.log('\nunionVariantTypesWithLiveValues strips suffix when merging');
+const mergedTypes = unionVariantTypesWithLiveValues(
+  [{ name: 'gm', values: [`3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`] }],
+  [{ id: 40, sku: '86000021', option1: '18K', option2: '52', option3: `3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021` }],
+  [{ name: 'Karat', position: 1 }, { name: 'Size', position: 2 }, { name: 'gm', position: 3 }],
+);
+assert(
+  mergedTypes[0].values.length === 1 && mergedTypes[0].values[0] === '3.070',
+  'unionVariantTypesWithLiveValues dedupes to display value',
+);
+
+console.log('\nresolveOptionCatalogValues strips Shopify option catalog');
+const catalog = resolveOptionCatalogValues(
+  { name: 'gm', values: [] },
+  [{ name: 'gm', values: [`3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`] }],
+  [],
+  null,
+);
+assert(
+  catalog.length === 1 && catalog[0] === '3.070',
+  'resolveOptionCatalogValues from shop options',
+);
+
+console.log('\nstripShopifyOnlyOptionSuffix without SKU');
+assert(
+  stripShopifyOnlyOptionSuffix(`3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`) === '3.070',
+  'generic suffix strip for catalog values',
+);
 
 console.log('\nCode hidden from customer option types');
 const withCode = [
