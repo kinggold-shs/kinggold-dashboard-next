@@ -18,9 +18,7 @@ import {
 } from '../../lib/shopifyItemWorkflow';
 import {
   filterCustomerOptionTypes,
-  filterSelectableOptionValues,
   getOptionSelectUiState,
-  getUsedOptionValues,
   resolveOptionCatalogValues,
   validateLastOptionUniqueness,
   validateOptionSelectionsAgainstProduct,
@@ -555,16 +553,7 @@ export default function AddSubVariantDialog({
                   variants,
                   mainVariant,
                 );
-                // Last customer type must be unique per product — filter out already-used values.
-                const isLastCustomerType = customerOptionTypes.length >= 2
-                  && typeIdx === customerOptionTypes.length - 1;
-                const catalogValues = isLastCustomerType
-                  ? filterSelectableOptionValues(
-                      rawCatalogValues,
-                      getUsedOptionValues(variants, mainVariant, type.name, customerOptionTypes, null, shopifyOptions),
-                      currentValue,
-                    )
-                  : rawCatalogValues;
+                const catalogValues = rawCatalogValues;
                 const { selectableValues, displayValue, hint, disableSelect } = getOptionSelectUiState({
                   typeName: type.name,
                   catalogValues,

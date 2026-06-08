@@ -39,9 +39,7 @@ import {
 } from '../../lib/shopifyItemWorkflow';
 import {
   filterCustomerOptionTypes,
-  filterSelectableOptionValues,
   getOptionSelectUiState,
-  getUsedOptionValues,
   isPlaceholderOptionValue,
   resolveOptionCatalogValues,
   validateLastOptionUniqueness,
@@ -98,15 +96,7 @@ function SubVariantFormRow({
           variants,
           mainVariant,
         );
-        // Last customer type must be unique per product — filter out already-used values.
-        const isLastCustomerType = typesArr.length >= 2 && typeIdx === typesArr.length - 1;
-        const catalogValues = isLastCustomerType
-          ? filterSelectableOptionValues(
-              rawCatalogValues,
-              getUsedOptionValues(variants, mainVariant, type.name, typesArr, excludeVariantId, shopifyOptions),
-              currentValue,
-            )
-          : rawCatalogValues;
+        const catalogValues = rawCatalogValues;
         const { selectableValues, displayValue, hint, disableSelect } = getOptionSelectUiState({
           typeName: type.name,
           catalogValues,

@@ -80,86 +80,22 @@ assert(
 );
 
 // ---------------------------------------------------------------------------
-// validateLastOptionUniqueness — the core new business rule
+// validateLastOptionUniqueness — no-op stub (client removed all constraints)
 // ---------------------------------------------------------------------------
-console.log('\nvalidateLastOptionUniqueness — last type must be unique per product');
+console.log('\nvalidateLastOptionUniqueness — always returns null (no client-side constraints)');
 
-// Last value ("Yellow") already exists on mainVariant → error
-const dupLastErr = validateLastOptionUniqueness(
-  optionTypes,
-  { Karat: '18K', 'Ring Size': '54', Color: 'Yellow' },
-  variants,
-  mainVariant,
-  { shopifyOptions },
-);
-assert(dupLastErr !== null, 'error when last value (Color) duplicates existing variant');
 assert(
-  dupLastErr?.includes('Color') && dupLastErr?.includes('Yellow'),
-  'error message names the field and the value',
+  validateLastOptionUniqueness(optionTypes, { Karat: '18K', 'Ring Size': '52', Color: 'Yellow' }, variants, mainVariant, { shopifyOptions }) === null,
+  'no error even on full-combo duplicate (Shopify handles it natively)',
 );
-
-// Unique last value → null
-const uniqueLastErr = validateLastOptionUniqueness(
-  optionTypes,
-  { Karat: '18K', 'Ring Size': '52', Color: 'Rose' },
-  variants,
-  mainVariant,
-  { shopifyOptions },
+assert(
+  validateLastOptionUniqueness(optionTypes, { Karat: '18K', 'Ring Size': '54', Color: 'Yellow' }, variants, mainVariant, { shopifyOptions }) === null,
+  'no error when same last value with different size',
 );
-assert(uniqueLastErr === null, 'no error when last value is unique across the product');
-
-// Non-last value (Karat) may duplicate freely
-const dupKaratErr = validateLastOptionUniqueness(
-  optionTypes,
-  { Karat: '18K', 'Ring Size': '50', Color: 'Rose' },
-  variants,
-  mainVariant,
-  { shopifyOptions },
+assert(
+  validateLastOptionUniqueness(optionTypes, { Karat: '18K', 'Ring Size': '52' }, variants, mainVariant, { shopifyOptions }) === null,
+  'no error when last value absent',
 );
-assert(dupKaratErr === null, 'no error when Karat (1st type) duplicates — allowed');
-
-// Non-last value (2nd type) may duplicate freely within same karat
-const dupSizeErr = validateLastOptionUniqueness(
-  optionTypes,
-  { Karat: '18K', 'Ring Size': '52', Color: 'Rose' },
-  variants,
-  mainVariant,
-  { shopifyOptions },
-);
-assert(dupSizeErr === null, 'no error when 2nd type (Ring Size) duplicates — allowed');
-
-// excludeVariantId: editing a variant should not flag itself
-const editSelfErr = validateLastOptionUniqueness(
-  optionTypes,
-  { Karat: '18K', 'Ring Size': '52', Color: 'Yellow' },
-  variants,
-  mainVariant,
-  { excludeVariantId: 1, shopifyOptions },   // mainVariant.id = 1 has Yellow
-);
-assert(editSelfErr === null, 'editing own variant: excluded from collision check');
-
-// Single-type product → no uniqueness enforced
-const singleTypeOpts = [{ name: 'Karat', values: ['18K', '21K'] }];
-const singleTypeShopify = [{ name: 'Karat', position: 1, values: ['18K', '21K'] }];
-const singleTypeVariants = [{ id: 10, option1: '18K', sku: 'M' }];
-const singleTypeErr = validateLastOptionUniqueness(
-  singleTypeOpts,
-  { Karat: '18K' },
-  singleTypeVariants,
-  null,
-  { shopifyOptions: singleTypeShopify },
-);
-assert(singleTypeErr === null, 'single-type product: rule not applied (< 2 customer types)');
-
-// No value supplied for last type → no error (missing-field guard)
-const noValueErr = validateLastOptionUniqueness(
-  optionTypes,
-  { Karat: '18K', 'Ring Size': '52' },   // Color missing
-  variants,
-  mainVariant,
-  { shopifyOptions },
-);
-assert(noValueErr === null, 'no error when last type value is absent (not yet selected)');
 
 // ---------------------------------------------------------------------------
 // filterSelectableOptionValues + getUsedOptionValues — drives dropdown
