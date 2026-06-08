@@ -95,15 +95,11 @@ function SubVariantFormRow({
           variants,
           mainVariant,
         );
-        const { selectableValues, hint, disableSelect } = getOptionSelectUiState({
+        const { selectableValues, displayValue, hint, disableSelect } = getOptionSelectUiState({
           typeName: type.name,
           catalogValues,
-          variants,
-          mainVariant,
-          optionTypes,
-          shopifyOptions,
-          excludeVariantId,
           currentValue,
+          variantSku: form.sku || '',
         });
         return (
         <TableCell key={type.name}>
@@ -112,7 +108,7 @@ function SubVariantFormRow({
               <p className="text-[11px] leading-snug text-amber-700 dark:text-amber-500">{hint}</p>
             ) : null}
             <Select
-              value={currentValue || UNSET}
+              value={displayValue || UNSET}
               onValueChange={v => setOptionValue(type.name, v)}
               disabled={disabled || disableSelect}
             >

@@ -75,7 +75,7 @@ import {
 
   PRIMARY_OPTION_CATALOG,
 
-  stripShopifyOnlyOptionSuffix,
+  normalizeOptionValuesForUi,
 
 } from '../../lib/variantModel';
 
@@ -89,13 +89,7 @@ function normalizeTypes(types) {
 
       name: String(t.name || '').trim(),
 
-      values: [...new Set(
-
-        (t.values || [])
-          .map(v => stripShopifyOnlyOptionSuffix(String(v).trim()))
-          .filter(Boolean),
-
-      )].filter(v => !isPlaceholderOptionValue(v)),
+      values: normalizeOptionValuesForUi(t.values || []),
 
     }))
 

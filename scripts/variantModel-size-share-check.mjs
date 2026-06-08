@@ -10,6 +10,7 @@ import {
   getOptionSelectUiState,
   hasDuplicateCustomerOptionCombo,
   hasDuplicatePrimaryOptionCombo,
+  normalizeOptionValuesForUi,
   resolveOptionCatalogValues,
   resolveSubVariantOptionSelections,
   stripShopifyOnlyOptionSuffix,
@@ -267,6 +268,33 @@ console.log('\nstripShopifyOnlyOptionSuffix without SKU');
 assert(
   stripShopifyOnlyOptionSuffix(`3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`) === '3.070',
   'generic suffix strip for catalog values',
+);
+
+console.log('\nUI catalog — strip suffix and dedupe gm values');
+const suffixedGm = `3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`;
+assert(
+  normalizeOptionValuesForUi(['3.070', suffixedGm]).join() === '3.070',
+  'dedupe base when suffixed duplicate exists',
+);
+const filtered = filterOptionsForUi([
+  { name: 'gm', values: ['3.070', suffixedGm, '5.000'] },
+]);
+assert(
+  filtered[0].values.join() === '3.070,5.000',
+  'filterOptionsForUi shows clean catalog only',
+);
+
+console.log('\nOption select — displayValue strips current selection');
+const gmUi = getOptionSelectUiState({
+  typeName: 'gm',
+  catalogValues: ['3.070', '5.000'],
+  currentValue: suffixedGm,
+  variantSku: '86000021',
+});
+assert(gmUi.displayValue === '3.070', 'displayValue is stripped base');
+assert(
+  gmUi.selectableValues.join() === '3.070,5.000',
+  'selectableValues are stripped catalog',
 );
 
 console.log('\nCode hidden from customer option types');

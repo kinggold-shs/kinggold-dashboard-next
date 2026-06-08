@@ -553,14 +553,11 @@ export default function AddSubVariantDialog({
                   variants,
                   mainVariant,
                 );
-                const { selectableValues, hint, disableSelect } = getOptionSelectUiState({
+                const { selectableValues, displayValue, hint, disableSelect } = getOptionSelectUiState({
                   typeName: type.name,
                   catalogValues,
-                  variants,
-                  mainVariant,
-                  optionTypes: customerOptionTypes,
-                  shopifyOptions,
                   currentValue,
+                  variantSku: selected?.mco || '',
                 });
                 return (
                 <div key={type.name} className="space-y-1">
@@ -569,7 +566,7 @@ export default function AddSubVariantDialog({
                     <p className="text-xs text-amber-700 dark:text-amber-500">{hint}</p>
                   ) : null}
                   <Select
-                    value={currentValue || UNSET}
+                    value={displayValue || UNSET}
                     onValueChange={v => {
                       setSelectedByName(prev => ({
                         ...prev,
