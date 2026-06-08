@@ -18,9 +18,11 @@ import {
 } from '../../lib/shopifyItemWorkflow';
 import {
   filterCustomerOptionTypes,
+  filterSelectableOptionValues,
   getOptionSelectUiState,
+  getUsedOptionValues,
   resolveOptionCatalogValues,
-  validateNonKaratOptionUniqueness,
+  validateLastOptionUniqueness,
   validateOptionSelectionsAgainstProduct,
 } from '../../lib/variantModel';
 import { Alert, AlertDescription } from '../ui/alert';
@@ -341,7 +343,7 @@ export default function AddSubVariantDialog({
       shopifyOptions,
     );
     if (productErr) return productErr;
-    return validateNonKaratOptionUniqueness(
+    return validateLastOptionUniqueness(
       customerOptionTypes,
       selectedByName,
       variants,
@@ -545,14 +547,24 @@ export default function AddSubVariantDialog({
                 shopifyInventoryTracked={selectedListed?.inventory_tracked ?? null}
               />
 
-              {(customerOptionTypes || []).map(type => {
+              {(customerOptionTypes || []).map((type, typeIdx) => {
                 const currentValue = effectiveOptionSelection(selectedByName, type.name);
-                const catalogValues = resolveOptionCatalogValues(
+                const rawCatalogValues = resolveOptionCatalogValues(
                   type,
                   shopifyOptions,
                   variants,
                   mainVariant,
                 );
+                // Last customer type must be unique per product — filter out already-used values.
+                const isLastCustomerType = customerOptionTypes.length >= 2
+                  && typeIdx === customerOptionTypes.length - 1;
+                const catalogValues = isLastCustomerType
+                  ? filterSelectableOptionValues(
+                      rawCatalogValues,
+                      getUsedOptionValues(variants, mainVariant, type.name, customerOptionTypes, null, shopifyOptions),
+                      currentValue,
+                    )
+                  : rawCatalogValues;
                 const { selectableValues, displayValue, hint, disableSelect } = getOptionSelectUiState({
                   typeName: type.name,
                   catalogValues,

@@ -39,10 +39,12 @@ import {
 } from '../../lib/shopifyItemWorkflow';
 import {
   filterCustomerOptionTypes,
+  filterSelectableOptionValues,
   getOptionSelectUiState,
+  getUsedOptionValues,
   isPlaceholderOptionValue,
   resolveOptionCatalogValues,
-  validateNonKaratOptionUniqueness,
+  validateLastOptionUniqueness,
   validateOptionSelectionsAgainstProduct,
   variantToOptionPayload,
 } from '../../lib/variantModel';
@@ -85,16 +87,26 @@ function SubVariantFormRow({
     });
   }
 
+  const typesArr = optionTypes || [];
   return (
     <>
-      {(optionTypes || []).map(type => {
+      {typesArr.map((type, typeIdx) => {
         const currentValue = effectiveOptionSelection(form.selectedByName, type.name);
-        const catalogValues = resolveOptionCatalogValues(
+        const rawCatalogValues = resolveOptionCatalogValues(
           type,
           shopifyOptions,
           variants,
           mainVariant,
         );
+        // Last customer type must be unique per product — filter out already-used values.
+        const isLastCustomerType = typesArr.length >= 2 && typeIdx === typesArr.length - 1;
+        const catalogValues = isLastCustomerType
+          ? filterSelectableOptionValues(
+              rawCatalogValues,
+              getUsedOptionValues(variants, mainVariant, type.name, typesArr, excludeVariantId, shopifyOptions),
+              currentValue,
+            )
+          : rawCatalogValues;
         const { selectableValues, displayValue, hint, disableSelect } = getOptionSelectUiState({
           typeName: type.name,
           catalogValues,
@@ -266,7 +278,7 @@ export default function ShopifyVariantsEditor({
       shopifyOptions,
     );
     if (productErr) return productErr;
-    return validateNonKaratOptionUniqueness(
+    return validateLastOptionUniqueness(
       customerOptionTypes,
       subForm.selectedByName,
       variants,

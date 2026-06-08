@@ -5,8 +5,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ShoppingBag } from 'lucide-react';
 import DashboardShell from '../../components/DashboardShell';
 import BulkRepairVariantOptionsButton from '../../components/shopify/BulkRepairVariantOptionsButton';
+import CleanupDiscriminatorsButton from '../../components/shopify/CleanupDiscriminatorsButton';
 import ItemsListTab from '../../components/shopify/ItemsListTab';
 import ItemsManagementTab from '../../components/shopify/ItemsManagementTab';
+import { CLEANUP_DISCRIMINATORS_UI_ENABLED } from '../../lib/featureFlags';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 
 export default function ShopifyPage() {
@@ -38,7 +40,10 @@ export default function ShopifyPage() {
                 Browse products in Items List, then open complete CRUD workflows in Items Management.
               </p>
             </div>
-            <BulkRepairVariantOptionsButton />
+            <div className="flex flex-col gap-2">
+              <BulkRepairVariantOptionsButton />
+              {CLEANUP_DISCRIMINATORS_UI_ENABLED ? <CleanupDiscriminatorsButton /> : null}
+            </div>
           </div>
         </div>
 

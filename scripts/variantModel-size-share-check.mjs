@@ -1,23 +1,32 @@
 /**
- * Regression checks for global duplicate selection + Shopify discriminator strategies.
+ * Regression checks for the per-level variant uniqueness rule.
  * Run: npx tsx scripts/variantModel-size-share-check.mjs
+ *
+ * Business rule (confirmed):
+ *  - 1st type (Karat): repeats freely.
+ *  - 2nd type (Size, etc.): repeats freely — deliberately, so multiple last-values hang off a karat+2nd pair.
+ *  - Last type: must be UNIQUE PER PRODUCT — the real distinguisher of each item.
+ *  - Only enforced when >= 2 customer option types.
+ *
+ * Legacy read-side helpers (stripShopifyOnlyOptionSuffix, normalizeOptionValuesForUi, etc.)
+ * are still present for displaying existing data that used the old Code/suffix approach.
  */
 import {
-  applyShopifyOnlyOptionSuffix,
   customerOptionComboKey,
   filterCustomerOptionTypes,
   filterOptionsForUi,
   getOptionSelectUiState,
+  getUsedOptionValues,
+  filterSelectableOptionValues,
   hasDuplicateCustomerOptionCombo,
   hasDuplicatePrimaryOptionCombo,
   normalizeOptionValuesForUi,
   resolveOptionCatalogValues,
-  resolveSubVariantOptionSelections,
   stripShopifyOnlyOptionSuffix,
   SUB_VARIANT_DISCRIMINATOR_OPTION,
   SUB_VARIANT_VALUE_SUFFIX_SEP,
   unionVariantTypesWithLiveValues,
-  validateNonKaratOptionUniqueness,
+  validateLastOptionUniqueness,
   variantToOptionPayload,
   isSizeOption,
 } from '../lib/variantModel.js';
@@ -34,9 +43,10 @@ const optionTypes = [
   { name: 'Color', values: ['Yellow', 'White'] },
 ];
 
-const mainVariant = { id: 1, option1: '18K', option2: '52', option3: 'Yellow' };
+const mainVariant = { id: 1, option1: '18K', option2: '52', option3: 'Yellow', sku: 'MAIN001' };
 const variants = [
-  { id: 2, option1: '21K', option2: '52', option3: 'White' },
+  mainVariant,
+  { id: 2, option1: '21K', option2: '52', option3: 'White', sku: 'SUB002' },
 ];
 
 let passed = 0;
@@ -52,6 +62,9 @@ function assert(condition, label) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Size name detection
+// ---------------------------------------------------------------------------
 console.log('Ring Size name detection');
 assert(isSizeOption('Ring Size'), 'isSizeOption("Ring Size")');
 assert(isSizeOption('Sizes'), 'isSizeOption("Sizes") contains size');
@@ -66,42 +79,123 @@ assert(
   'isSizeOption at position 2 when Karat is option1',
 );
 
-console.log('\nGlobal duplicates — Ring Size UI state');
-const ui = getOptionSelectUiState({
-  typeName: 'Ring Size',
-  catalogValues: ['50', '52', '54'],
-});
-assert(ui.selectableValues.length === 3, 'full catalog in selectableValues');
-assert(!ui.hint, 'no exhaustion hint');
-assert(!ui.disableSelect, 'select not disabled');
+// ---------------------------------------------------------------------------
+// validateLastOptionUniqueness — the core new business rule
+// ---------------------------------------------------------------------------
+console.log('\nvalidateLastOptionUniqueness — last type must be unique per product');
 
-console.log('\nGlobal duplicates — Color UI state');
-const colorUi = getOptionSelectUiState({
-  typeName: 'Color',
-  catalogValues: ['Yellow', 'White'],
-});
-assert(colorUi.selectableValues.length === 2, 'Color shows full catalog');
-assert(!colorUi.hint, 'no Color exhaustion hint');
-
-console.log('\nGlobal duplicates — validation no-op');
-const validationErr = validateNonKaratOptionUniqueness(
+// Last value ("Yellow") already exists on mainVariant → error
+const dupLastErr = validateLastOptionUniqueness(
   optionTypes,
-  { Karat: '18K', 'Ring Size': '52', Color: 'Yellow' },
+  { Karat: '18K', 'Ring Size': '54', Color: 'Yellow' },
   variants,
   mainVariant,
   { shopifyOptions },
 );
-assert(validationErr === null, 'no validation error for any duplicate');
+assert(dupLastErr !== null, 'error when last value (Color) duplicates existing variant');
+assert(
+  dupLastErr?.includes('Color') && dupLastErr?.includes('Yellow'),
+  'error message names the field and the value',
+);
 
-console.log('\nTwo-option product — duplicate combo detection');
-const twoOptionShopify = [
+// Unique last value → null
+const uniqueLastErr = validateLastOptionUniqueness(
+  optionTypes,
+  { Karat: '18K', 'Ring Size': '52', Color: 'Rose' },
+  variants,
+  mainVariant,
+  { shopifyOptions },
+);
+assert(uniqueLastErr === null, 'no error when last value is unique across the product');
+
+// Non-last value (Karat) may duplicate freely
+const dupKaratErr = validateLastOptionUniqueness(
+  optionTypes,
+  { Karat: '18K', 'Ring Size': '50', Color: 'Rose' },
+  variants,
+  mainVariant,
+  { shopifyOptions },
+);
+assert(dupKaratErr === null, 'no error when Karat (1st type) duplicates — allowed');
+
+// Non-last value (2nd type) may duplicate freely within same karat
+const dupSizeErr = validateLastOptionUniqueness(
+  optionTypes,
+  { Karat: '18K', 'Ring Size': '52', Color: 'Rose' },
+  variants,
+  mainVariant,
+  { shopifyOptions },
+);
+assert(dupSizeErr === null, 'no error when 2nd type (Ring Size) duplicates — allowed');
+
+// excludeVariantId: editing a variant should not flag itself
+const editSelfErr = validateLastOptionUniqueness(
+  optionTypes,
+  { Karat: '18K', 'Ring Size': '52', Color: 'Yellow' },
+  variants,
+  mainVariant,
+  { excludeVariantId: 1, shopifyOptions },   // mainVariant.id = 1 has Yellow
+);
+assert(editSelfErr === null, 'editing own variant: excluded from collision check');
+
+// Single-type product → no uniqueness enforced
+const singleTypeOpts = [{ name: 'Karat', values: ['18K', '21K'] }];
+const singleTypeShopify = [{ name: 'Karat', position: 1, values: ['18K', '21K'] }];
+const singleTypeVariants = [{ id: 10, option1: '18K', sku: 'M' }];
+const singleTypeErr = validateLastOptionUniqueness(
+  singleTypeOpts,
+  { Karat: '18K' },
+  singleTypeVariants,
+  null,
+  { shopifyOptions: singleTypeShopify },
+);
+assert(singleTypeErr === null, 'single-type product: rule not applied (< 2 customer types)');
+
+// No value supplied for last type → no error (missing-field guard)
+const noValueErr = validateLastOptionUniqueness(
+  optionTypes,
+  { Karat: '18K', 'Ring Size': '52' },   // Color missing
+  variants,
+  mainVariant,
+  { shopifyOptions },
+);
+assert(noValueErr === null, 'no error when last type value is absent (not yet selected)');
+
+// ---------------------------------------------------------------------------
+// filterSelectableOptionValues + getUsedOptionValues — drives dropdown
+// ---------------------------------------------------------------------------
+console.log('\nDropdown filtering for last type');
+const twoOptShopify = [
   { name: 'Karat', position: 1, values: ['18K'] },
-  { name: 'Size', position: 2, values: ['1', '2'] },
+  { name: 'Size', position: 2, values: ['1', '2', '3'] },
 ];
-const twoOptionTypes = [
+const twoOptTypes = [
   { name: 'Karat', values: ['18K'] },
-  { name: 'Size', values: ['1', '2'] },
+  { name: 'Size', values: ['1', '2', '3'] },
 ];
+const twoOptMain = { id: 10, option1: '18K', option2: '1', sku: 'MAIN' };
+const twoOptSubs = [
+  twoOptMain,
+  { id: 11, option1: '18K', option2: '2', sku: 'SUB11' },
+];
+const usedSizes = getUsedOptionValues(twoOptSubs, null, 'Size', twoOptTypes, null, twoOptShopify);
+assert(usedSizes.includes('1') && usedSizes.includes('2'), 'getUsedOptionValues returns used last values');
+const selectable = filterSelectableOptionValues(['1', '2', '3'], usedSizes, '');
+assert(!selectable.includes('1') && !selectable.includes('2'), 'used last values removed from selectable');
+assert(selectable.includes('3'), 'unused last value still selectable');
+
+// excludeVariantId: editing variant's own current value stays selectable
+const selectableEdit = filterSelectableOptionValues(
+  ['1', '2', '3'],
+  getUsedOptionValues(twoOptSubs, null, 'Size', twoOptTypes, 11, twoOptShopify),  // exclude sub11 (Size=2)
+  '2',   // currentValue being edited
+);
+assert(selectableEdit.includes('2'), 'editing own variant: its current value remains selectable');
+
+// ---------------------------------------------------------------------------
+// Duplicate combo detection (helpers remain valid)
+// ---------------------------------------------------------------------------
+console.log('\nTwo-option product — duplicate combo detection (unchanged helpers)');
 const main18k1 = { id: 10, option1: '18K', option2: '1', sku: 'MAIN001' };
 const subs18k1 = [main18k1];
 
@@ -109,8 +203,8 @@ assert(
   hasDuplicateCustomerOptionCombo(
     { Karat: '18K', Size: '1' },
     subs18k1,
-    twoOptionShopify,
-    twoOptionTypes,
+    twoOptShopify,
+    twoOptTypes,
   ),
   'detects duplicate full combo on existing variant',
 );
@@ -118,8 +212,8 @@ assert(
   hasDuplicatePrimaryOptionCombo(
     { Karat: '18K', Size: '1' },
     subs18k1,
-    twoOptionShopify,
-    twoOptionTypes,
+    twoOptShopify,
+    twoOptTypes,
   ),
   'legacy hasDuplicatePrimaryOptionCombo delegates',
 );
@@ -127,110 +221,46 @@ assert(
   !hasDuplicateCustomerOptionCombo(
     { Karat: '18K', Size: '2' },
     subs18k1,
-    twoOptionShopify,
-    twoOptionTypes,
+    twoOptShopify,
+    twoOptTypes,
   ),
   'no duplicate when Size differs',
 );
 
-console.log('\nTwo-option duplicate — auto Code discriminator');
-const resolved = resolveSubVariantOptionSelections({
-  selectedByName: { Karat: '18K', Size: '1' },
-  sku: 'SUB456',
-  variants: subs18k1,
-  shopifyOptions: twoOptionShopify,
-  optionTypes: twoOptionTypes,
-});
-assert(resolved.discriminatorApplied, 'discriminator applied for duplicate combo');
-assert(!resolved.suffixApplied, 'no suffix when <3 customer types');
-assert(
-  resolved.selectedByName[SUB_VARIANT_DISCRIMINATOR_OPTION] === 'SUB456',
-  'Code set to FN6 SKU',
-);
-assert(!resolved.error, 'no error when SKU provided');
-
-const missingSku = resolveSubVariantOptionSelections({
-  selectedByName: { Karat: '18K', Size: '1' },
-  sku: '',
-  variants: subs18k1,
-  shopifyOptions: twoOptionShopify,
-  optionTypes: twoOptionTypes,
-});
-assert(missingSku.error !== null, 'error when duplicate combo and no SKU');
-
-console.log('\nThree-option product — suffix discriminator (not Code)');
-const threeOptionShopify = [
-  { name: 'Karat', position: 1, values: ['18K'] },
-  { name: 'Size', position: 2, values: ['52'] },
-  { name: 'gm', position: 3, values: ['5gm'] },
-];
-const threeOptionTypes = [
-  { name: 'Karat', values: ['18K'] },
-  { name: 'Size', values: ['52'] },
-  { name: 'gm', values: ['5gm'] },
-];
-const main3 = { id: 20, option1: '18K', option2: '52', option3: '5gm', sku: 'MAIN020' };
-const subs3 = [main3];
-
-assert(
-  hasDuplicateCustomerOptionCombo(
-    { Karat: '18K', Size: '52', gm: '5gm' },
-    subs3,
-    threeOptionShopify,
-    threeOptionTypes,
-  ),
-  'detects duplicate Karat+Size+gm combo',
-);
-
-const suffixResolved = resolveSubVariantOptionSelections({
-  selectedByName: { Karat: '18K', Size: '52', gm: '5gm' },
-  sku: 'SUB789',
-  variants: subs3,
-  shopifyOptions: threeOptionShopify,
-  optionTypes: threeOptionTypes,
-});
-assert(!suffixResolved.discriminatorApplied, 'no Code when 3 customer types');
-assert(suffixResolved.suffixApplied, 'suffix applied on last option');
-assert(
-  suffixResolved.selectedByName.gm === `5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`,
-  'gm suffixed with SKU for Shopify',
-);
-assert(
-  !suffixResolved.selectedByName[SUB_VARIANT_DISCRIMINATOR_OPTION],
-  'Code not set when 3 customer types',
-);
-
-console.log('\nSuffix round-trip');
-const suffixed = applyShopifyOnlyOptionSuffix('5gm', 'SUB789');
-assert(
-  suffixed === `5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`,
-  'applyShopifyOnlyOptionSuffix',
-);
+// ---------------------------------------------------------------------------
+// Legacy read-side helpers — display of existing Code/suffix data
+// ---------------------------------------------------------------------------
+console.log('\nLegacy suffix round-trip (read-side, backward compat)');
+const suffixed = `5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`;
 assert(
   stripShopifyOnlyOptionSuffix(suffixed, 'SUB789') === '5gm',
-  'stripShopifyOnlyOptionSuffix',
+  'stripShopifyOnlyOptionSuffix strips SKU suffix',
 );
-
-console.log('\nCustomer combo key');
 assert(
-  customerOptionComboKey(
-    { Karat: '18K', Size: '52', gm: '5gm' },
-    threeOptionTypes,
-    threeOptionShopify,
-  ).includes('5gm'),
-  'combo key includes all customer dimensions',
+  stripShopifyOnlyOptionSuffix(suffixed) === '5gm',
+  'stripShopifyOnlyOptionSuffix strips without SKU hint',
 );
 
-console.log('\nvariantToOptionPayload strips suffix for UI');
-const suffixedVariant = {
+console.log('\nvariantToOptionPayload strips legacy suffix for UI');
+const legacySuffixedVariant = {
   id: 30,
   sku: 'SUB789',
   option1: '18K',
   option2: '52',
   option3: `5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`,
 };
-const stripped = variantToOptionPayload(suffixedVariant, threeOptionTypes, threeOptionShopify);
-assert(stripped.gm === '5gm', 'suffix stripped from option3 when reading variant');
+const threeOptionShopify = [
+  { name: 'Karat', position: 1, values: ['18K'] },
+  { name: 'Size', position: 2, values: ['52'] },
+  { name: 'gm', position: 3, values: [`5gm${SUB_VARIANT_VALUE_SUFFIX_SEP}SUB789`] },
+];
+const threeOptionTypes = [
+  { name: 'Karat', values: ['18K'] },
+  { name: 'Size', values: ['52'] },
+  { name: 'gm', values: ['5gm'] },
+];
+const stripped = variantToOptionPayload(legacySuffixedVariant, threeOptionTypes, threeOptionShopify);
+assert(stripped.gm === '5gm', 'variantToOptionPayload strips ·SKU suffix from option3');
 
 console.log('\nfilterOptionsForUi strips Shopify-only suffix from catalog');
 const suffixedCatalog = filterOptionsForUi([
@@ -264,12 +294,6 @@ assert(
   'resolveOptionCatalogValues from shop options',
 );
 
-console.log('\nstripShopifyOnlyOptionSuffix without SKU');
-assert(
-  stripShopifyOnlyOptionSuffix(`3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`) === '3.070',
-  'generic suffix strip for catalog values',
-);
-
 console.log('\nUI catalog — strip suffix and dedupe gm values');
 const suffixedGm = `3.070${SUB_VARIANT_VALUE_SUFFIX_SEP}86000021`;
 assert(
@@ -297,7 +321,7 @@ assert(
   'selectableValues are stripped catalog',
 );
 
-console.log('\nCode hidden from customer option types');
+console.log('\nCode hidden from customer option types (legacy data filter)');
 const withCode = [
   { name: 'Karat', values: ['18K'] },
   { name: 'Size', values: ['1'] },
@@ -308,5 +332,18 @@ assert(
   'Code filtered from customer-facing types',
 );
 
+// ---------------------------------------------------------------------------
+// Global duplicate UI state (Ring Size shows full catalog — 2nd type, not last when 3 types)
+// ---------------------------------------------------------------------------
+console.log('\nGlobal duplicates — Ring Size UI state (middle type, all values selectable)');
+const ui = getOptionSelectUiState({
+  typeName: 'Ring Size',
+  catalogValues: ['50', '52', '54'],
+});
+assert(ui.selectableValues.length === 3, 'full catalog in selectableValues');
+assert(!ui.hint, 'no exhaustion hint');
+assert(!ui.disableSelect, 'select not disabled');
+
+// ---------------------------------------------------------------------------
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
