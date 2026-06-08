@@ -20,7 +20,12 @@ async function callCleanupBulk(dryRun) {
     body: JSON.stringify({ dryRun }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Cleanup request failed');
+  if (!res.ok) {
+    const errText = typeof data.error === 'object'
+      ? JSON.stringify(data.error)
+      : (data.error || 'Cleanup request failed');
+    throw new Error(errText);
+  }
   return data;
 }
 
