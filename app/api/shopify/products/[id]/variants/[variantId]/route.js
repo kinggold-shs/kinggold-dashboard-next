@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getShopifyToken } from '../../../../../../../lib/shopify';
-import { ensureProductOptionValuesForSelections } from '../../../../../../../lib/shopifyVariantTypes';
+import { ensureProductOptionValuesForSelections, ensureSubVariantDiscriminatorOption } from '../../../../../../../lib/shopifyVariantTypes';
 import { fetchProductVariants } from '../../../../../../../lib/variantGroupService';
 import {
   applyVariantInventoryFromBody,
@@ -11,6 +11,7 @@ import {
   optionValuesToRestPayload,
   productOptionTypes,
   resolveOptionFieldIndex,
+  resolveSubVariantOptionSelections,
   validateOptionSelectionsAgainstProduct,
 } from '../../../../../../../lib/variantModel';
 
@@ -54,23 +55,46 @@ export async function PUT(request, { params }) {
 
     const shopifyOptions = product.options || [];
     const optionTypes = productOptionTypes(shopifyOptions);
-    const selectedByName = selectedByNameFromBody(body, shopifyOptions, optionTypes);
+    const selectedByNameRaw = selectedByNameFromBody(body, shopifyOptions, optionTypes);
 
     const validationError = validateOptionSelectionsAgainstProduct(
       optionTypes,
-      selectedByName,
+      selectedByNameRaw,
       shopifyOptions,
     );
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
+    const resolved = resolveSubVariantOptionSelections({
+      selectedByName: selectedByNameRaw,
+      sku: body.sku,
+      variants: product.variants,
+      shopifyOptions,
+      optionTypes,
+      excludeVariantId: variantId,
+    });
+    if (resolved.error) {
+      return NextResponse.json({ error: resolved.error }, { status: 400 });
+    }
+    const selectedByName = resolved.selectedByName;
+
+    if (resolved.discriminatorApplied) {
+      await ensureSubVariantDiscriminatorOption(
+        domain,
+        token,
+        id,
+        selectedByName.Code,
+      );
+    }
+
     await ensureProductOptionValuesForSelections(domain, token, id, selectedByName);
 
     const refreshed = await fetchProductVariants(domain, token, id);
     const freshOptions = refreshed?.options || shopifyOptions;
+    const freshOptionTypes = productOptionTypes(freshOptions);
     const restOptions = optionValuesToRestPayload(
-      optionTypes,
+      freshOptionTypes,
       selectedByName,
       freshOptions,
     );

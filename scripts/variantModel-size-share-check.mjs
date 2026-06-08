@@ -1,9 +1,13 @@
 /**
- * Focused regression checks for Size duplicate UI + validation.
+ * Focused regression checks for Size duplicate UI + validation + Shopify option3 discriminator.
  * Run: npx tsx scripts/variantModel-size-share-check.mjs
  */
 import {
+  filterCustomerOptionTypes,
   getOptionSelectUiState,
+  hasDuplicatePrimaryOptionCombo,
+  resolveSubVariantOptionSelections,
+  SUB_VARIANT_DISCRIMINATOR_OPTION,
   validateNonKaratOptionUniqueness,
   isSizeOption,
 } from '../lib/variantModel.js';
@@ -99,6 +103,72 @@ const colorErr = validateNonKaratOptionUniqueness(
   { shopifyOptions },
 );
 assert(colorErr !== null, 'Color duplicate blocked');
+
+console.log('\nKarat+Size only — duplicate combo detection');
+const twoOptionShopify = [
+  { name: 'Karat', position: 1, values: ['18K'] },
+  { name: 'Size', position: 2, values: ['1', '2'] },
+];
+const twoOptionTypes = [
+  { name: 'Karat', values: ['18K'] },
+  { name: 'Size', values: ['1', '2'] },
+];
+const main18k1 = { id: 10, option1: '18K', option2: '1', sku: 'MAIN001' };
+const subs18k1 = [main18k1];
+
+assert(
+  hasDuplicatePrimaryOptionCombo(
+    { Karat: '18K', Size: '1' },
+    subs18k1,
+    twoOptionShopify,
+    twoOptionTypes,
+  ),
+  'detects duplicate Karat+Size on existing variant',
+);
+assert(
+  !hasDuplicatePrimaryOptionCombo(
+    { Karat: '18K', Size: '2' },
+    subs18k1,
+    twoOptionShopify,
+    twoOptionTypes,
+  ),
+  'no duplicate when Size differs',
+);
+
+console.log('\nKarat+Size duplicate — auto Code discriminator');
+const resolved = resolveSubVariantOptionSelections({
+  selectedByName: { Karat: '18K', Size: '1' },
+  sku: 'SUB456',
+  variants: subs18k1,
+  shopifyOptions: twoOptionShopify,
+  optionTypes: twoOptionTypes,
+});
+assert(resolved.discriminatorApplied, 'discriminator applied for duplicate combo');
+assert(
+  resolved.selectedByName[SUB_VARIANT_DISCRIMINATOR_OPTION] === 'SUB456',
+  'Code set to FN6 SKU',
+);
+assert(!resolved.error, 'no error when SKU provided');
+
+const missingSku = resolveSubVariantOptionSelections({
+  selectedByName: { Karat: '18K', Size: '1' },
+  sku: '',
+  variants: subs18k1,
+  shopifyOptions: twoOptionShopify,
+  optionTypes: twoOptionTypes,
+});
+assert(missingSku.error !== null, 'error when duplicate combo and no SKU');
+
+console.log('\nCode hidden from customer option types');
+const withCode = [
+  { name: 'Karat', values: ['18K'] },
+  { name: 'Size', values: ['1'] },
+  { name: SUB_VARIANT_DISCRIMINATOR_OPTION, values: ['SUB456'] },
+];
+assert(
+  filterCustomerOptionTypes(withCode).length === 2,
+  'Code filtered from customer-facing types',
+);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
