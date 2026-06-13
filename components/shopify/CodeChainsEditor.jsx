@@ -21,8 +21,8 @@ import {
 import { Alert, AlertDescription } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
+import Fn6CodeCombobox from './Fn6CodeCombobox';
 
 function formatOptionLabel(optionValues) {
   return Object.entries(optionValues || {})
@@ -48,12 +48,27 @@ function ChainStatusBadge({ chain }) {
 function ChainRow({
   chain,
   disabled,
+  mco,
+  globalReservedCodes,
   onChange,
   onRemoveCode,
   onAddCode,
   onMoveCode,
 }) {
   const codes = chain.codes || [];
+
+  function reservedForSlot(codeIdx) {
+    const reserved = new Set(globalReservedCodes || []);
+    const current = codes[codeIdx];
+    if (current) reserved.delete(String(current));
+    return [...reserved];
+  }
+
+  function appendCode(code) {
+    const trimmed = String(code || '').trim();
+    if (!trimmed || codes.includes(trimmed)) return;
+    onChange({ ...chain, codes: [...codes, trimmed] });
+  }
 
   return (
     <div className="rounded-lg border border-border/80 bg-card p-3 sm:p-4 space-y-3">
@@ -95,17 +110,25 @@ function ChainRow({
             const isSold = (chain.soldCodes || []).includes(code);
             return (
               <li key={`${chain.key}-${codeIdx}`} className="flex items-center gap-1.5">
-                <Input
-                  value={code}
-                  onChange={e => {
-                    const next = [...codes];
-                    next[codeIdx] = e.target.value.trim();
-                    onChange({ ...chain, codes: next });
-                  }}
-                  disabled={disabled || isSold}
-                  className="h-8 font-mono text-xs flex-1"
-                  placeholder="FN6 code"
-                />
+                {isSold ? (
+                  <div className="h-8 flex-1 flex items-center rounded-md border border-border/60 bg-muted/30 px-2.5 font-mono text-xs text-muted-foreground">
+                    {code}
+                  </div>
+                ) : (
+                  <Fn6CodeCombobox
+                    value={code}
+                    onChange={nextCode => {
+                      const next = [...codes];
+                      next[codeIdx] = nextCode;
+                      onChange({ ...chain, codes: next });
+                    }}
+                    disabled={disabled}
+                    mco={mco}
+                    reservedCodes={reservedForSlot(codeIdx)}
+                    placeholder="Select FN6 code…"
+                    className="flex-1"
+                  />
+                )}
                 <div className="flex items-center gap-0.5 shrink-0">
                   {isActive ? (
                     <Badge variant="secondary" className="text-[10px] px-1.5">Active</Badge>
@@ -150,20 +173,31 @@ function ChainRow({
             );
           })}
         </ul>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={disabled}
-          onClick={onAddCode}
-        >
-          <Plus size={14} className="mr-1" />
-          Add code
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Fn6CodeCombobox
+            value=""
+            onChange={appendCode}
+            disabled={disabled}
+            mco={mco}
+            reservedCodes={globalReservedCodes}
+            placeholder="Add code from FN6…"
+            className="min-w-[12rem] max-w-xs"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={onAddCode}
+          >
+            <Plus size={14} className="mr-1" />
+            Empty slot
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-xs text-muted-foreground">Paste comma- or newline-separated codes</p>
+        <p className="text-xs text-muted-foreground">Or paste comma- / newline-separated codes</p>
         <Textarea
           placeholder="101, 102, 103"
           disabled={disabled}
@@ -221,6 +255,18 @@ export default function CodeChainsEditor({
   }, [load]);
 
   const hasChains = useMemo(() => chains.some(c => (c.codes || []).length > 0), [chains]);
+
+  const globalReservedCodes = useMemo(() => {
+    const set = new Set();
+    if (mco) set.add(String(mco));
+    for (const chain of chains) {
+      for (const code of chain.codes || []) {
+        const trimmed = String(code || '').trim();
+        if (trimmed) set.add(trimmed);
+      }
+    }
+    return [...set];
+  }, [chains, mco]);
 
   function updateChain(index, nextChain) {
     setChains(prev => prev.map((c, i) => (i === index ? nextChain : c)));
@@ -349,6 +395,8 @@ export default function CodeChainsEditor({
               <ChainRow
                 chain={chain}
                 disabled={disabled || saving}
+                mco={mco}
+                globalReservedCodes={globalReservedCodes}
                 onChange={next => updateChain(index, next)}
                 onAddCode={() => {
                   updateChain(index, { ...chain, codes: [...(chain.codes || []), ''] });
