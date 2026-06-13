@@ -1,0 +1,9 @@
+# Agent / IDE skill harnesses (not app source)
+.claude/
+.cursor/
+.agents/
+
+# Build artifacts and graph output
+node_modules/
+.next/
+graphify-out/

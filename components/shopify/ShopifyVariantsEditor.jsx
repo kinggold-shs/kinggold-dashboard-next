@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { fn6Api } from '../../api/fn6';
-import { fn6Quantity, shopifyInventoryPayloadFromGwebQty } from '../../lib/fn6ItemFields';
+import { shopifyBinaryInventoryPayload } from '../../lib/fn6ItemFields';
 import Fn6ItemMetadataPanel from '../Fn6ItemMetadataPanel';
 import { AlertCircle, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -172,6 +172,7 @@ export default function ShopifyVariantsEditor({
   variants = [],
   onRefresh,
   onVariantsChanged,
+  hideSubVariantActions = false,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(null);
@@ -364,7 +365,7 @@ export default function ShopifyVariantsEditor({
       if (skuCode) {
         try {
           const res = await fn6Api.getByMco(skuCode);
-          inventoryPayload = shopifyInventoryPayloadFromGwebQty(fn6Quantity(res.data));
+          inventoryPayload = shopifyBinaryInventoryPayload(true);
           const nextPrice = roundedFn6Price(res.data);
           if (nextPrice) price = nextPrice;
         } catch {
@@ -640,11 +641,11 @@ export default function ShopifyVariantsEditor({
             <span className="sr-only">Tap the row again to hide.</span>
             <span aria-hidden>— tap row again to hide</span>
           </p>
-          <Fn6ItemMetadataPanel item={metaItem} loading={metaLoading} />
+          <Fn6ItemMetadataPanel item={metaItem} loading={metaLoading} hideQuantity />
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Tap a variant row to view weight, price, and quantity from GWEB.
+          Tap a variant row to view weight and price from GWEB.
         </p>
       )}
 
@@ -655,6 +656,7 @@ export default function ShopifyVariantsEditor({
         </Alert>
       ) : null}
 
+      {!hideSubVariantActions ? (
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
         <Button
           variant="outline"
@@ -680,7 +682,13 @@ export default function ShopifyVariantsEditor({
           </p>
         )}
       </div>
+      ) : (
+        <p className="text-xs text-muted-foreground pt-1">
+          Sub-variants are managed via code chains above. Use the variants table to edit option values or view GWEB details.
+        </p>
+      )}
 
+      {!hideSubVariantActions ? (
       <AddSubVariantDialog
         open={addFromCodeOpen}
         onOpenChange={setAddFromCodeOpen}
@@ -696,6 +704,7 @@ export default function ShopifyVariantsEditor({
           onVariantsChanged?.();
         }}
       />
+      ) : null}
 
       <Dialog open={!!deleteTarget} onOpenChange={open => !open && !deleting && closeDeleteDialog()}>
         <DialogContent>

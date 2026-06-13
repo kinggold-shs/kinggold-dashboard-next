@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, ImageIcon, Loader2, ShoppingBag, Trash2, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { fn6Quantity, formatFn6Weight, shopifyInventoryPayloadFromGwebQty } from '../../lib/fn6ItemFields';
+import { formatFn6Weight, shopifyBinaryInventoryPayload } from '../../lib/fn6ItemFields';
 import { formatGwebWeightDisplay } from '../../lib/gwebWeightMetafield';
 import { buildDefaultDescription, buildDefaultSpec, splitBodyHtml } from '../../lib/fn6Spec';
 import { getItemImageUrls } from '../../lib/mediaUrl';
@@ -187,7 +187,7 @@ export default function ShopifyPublishForm({
           tags,
           collectionIds: selectedCollectionIds,
         }),
-        ...shopifyInventoryPayloadFromGwebQty(fn6Quantity(item)),
+        ...shopifyBinaryInventoryPayload(true),
       };
       const data = await publishShopifyItem(payload);
       setSuccessMsg('Published to Shopify');

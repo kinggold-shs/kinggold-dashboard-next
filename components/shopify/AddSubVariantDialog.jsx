@@ -5,10 +5,7 @@ import { AlertCircle, CheckCircle2, Loader2, Search } from 'lucide-react';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_LABELS } from '../../constants/fn6';
 import {
-  fn6HasAssignableStock,
-  fn6Quantity,
-  fn6StockStatus,
-  shopifyInventoryPayloadFromGwebQty,
+  shopifyBinaryInventoryPayload,
 } from '../../lib/fn6ItemFields';
 import Fn6ItemMetadataPanel from '../Fn6ItemMetadataPanel';
 import {
@@ -65,25 +62,21 @@ function listedEntryStatus(entry) {
   return entry.status || 'loading';
 }
 
-function StockBadge({ item }) {
-  const status = fn6StockStatus(item);
-  if (status === 'in_stock') {
+function fn6CodeExists(item) {
+  return Boolean(item?.mco);
+}
+
+function AvailabilityBadge({ item }) {
+  if (fn6CodeExists(item)) {
     return (
       <Badge variant="default" className="font-normal">
         Available
       </Badge>
     );
   }
-  if (status === 'out_of_stock') {
-    return (
-      <Badge variant="destructive" className="font-normal">
-        Unavailable
-      </Badge>
-    );
-  }
   return (
     <Badge variant="outline" className="font-normal text-muted-foreground">
-      Qty unknown
+      Not found
     </Badge>
   );
 }
@@ -367,13 +360,8 @@ export default function AddSubVariantDialog({
       setFormError('Select an FN6 code first.');
       return;
     }
-    if (!fn6HasAssignableStock(metadataItem || selected)) {
-      const qty = fn6Quantity(metadataItem || selected);
-      setFormError(
-        qty === 0
-          ? 'GWEB quantity is 0 — this code cannot be assigned as a sub-variant.'
-          : 'GWEB quantity is missing — refresh item details or pick another code.',
-      );
+    if (!fn6CodeExists(metadataItem || selected)) {
+      setFormError('FN6 code not found — pick a valid code.');
       return;
     }
 
@@ -384,9 +372,8 @@ export default function AddSubVariantDialog({
         selections: selectedByName,
         sku: String(selected.mco),
         price: derivedPrice,
+        ...shopifyBinaryInventoryPayload(true),
       };
-      const gwebQty = fn6Quantity(metadataItem || selected);
-      Object.assign(payload, shopifyInventoryPayloadFromGwebQty(gwebQty));
       await createShopifyVariant(productId, payload);
       onOpenChange(false);
       await onCreated?.();
@@ -398,7 +385,6 @@ export default function AddSubVariantDialog({
   }
 
   const selectedListed = selected?.mco ? listedByMco[String(selected.mco)] : null;
-  const showInventoryCompare = listedEntryStatus(selectedListed) === 'listed';
   const selectedItem = metadataItem || selected;
   const derivedPrice = useMemo(() => {
     const src = metadataItem || selected;
@@ -406,8 +392,7 @@ export default function AddSubVariantDialog({
     return String(Math.round(Number(src.price)));
   }, [metadataItem, selected]);
   const selectedCanAssign =
-    selected && !metadataLoading && fn6HasAssignableStock(selectedItem);
-  const selectedListedOnShopify = listedEntryStatus(selectedListed) === 'listed';
+    selected && !metadataLoading && fn6CodeExists(selectedItem);
   const inventoryReady = inventoryPreflightOk && !inventoryPreflightLoading;
   const canCreate =
     inventoryReady && selectedCanAssign && Boolean(customerOptionTypes.length);
@@ -419,7 +404,7 @@ export default function AddSubVariantDialog({
           <DialogTitle>Add sub-variant from FN6 code</DialogTitle>
           <DialogDescription>
             Search FN6 codes, pick option values, and create a sub-variant using that item&apos;s SKU.
-            Availability follows GWEB quantity; a separate Shopify listing does not block assignment.
+            Availability is binary — the code must exist in FN6/GWEB.
           </DialogDescription>
         </DialogHeader>
 
@@ -479,7 +464,7 @@ export default function AddSubVariantDialog({
               {results.map(row => {
                 const code = String(row.mco);
                 const isSelected = selected?.mco === row.mco;
-                const rowInStock = fn6HasAssignableStock(row);
+                const rowAvailable = fn6CodeExists(row);
                 return (
                   <li key={code}>
                     <button
@@ -487,7 +472,7 @@ export default function AddSubVariantDialog({
                       onClick={() => selectItem(row)}
                       className={`w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors ${
                         isSelected ? 'bg-gold-50/80 ring-1 ring-inset ring-gold-300/60' : ''
-                      } ${!rowInStock ? 'opacity-80' : ''}`}
+                      } ${!rowAvailable ? 'opacity-80' : ''}`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="min-w-0">
@@ -497,13 +482,10 @@ export default function AddSubVariantDialog({
                           ) : null}
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {TYPE_LABELS[row.co] || (row.co != null ? `${row.co}K` : '')}
-                            {fn6Quantity(row) != null ? (
-                              <span className="ml-1.5">· qty {fn6Quantity(row)}</span>
-                            ) : null}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                          <StockBadge item={row} />
+                          <AvailabilityBadge item={row} />
                           <ListedBadge entry={listedByMco[code]} />
                         </div>
                       </div>
@@ -519,30 +501,17 @@ export default function AddSubVariantDialog({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium">Selected</span>
                 <code className="text-xs">{selected.mco}</code>
-                <StockBadge item={selectedItem} />
+                <AvailabilityBadge item={selectedItem} />
                 <ListedBadge entry={selectedListed} />
               </div>
               <p className="text-xs text-muted-foreground">
                 Sub-variant SKU will be <code>{selected.mco}</code> on this product.
               </p>
-              {selectedListedOnShopify && selectedCanAssign ? (
-                <p className="text-xs text-amber-700 dark:text-amber-500">
-                  This code already has its own Shopify product; GWEB stock allows adding it here as a
-                  sub-variant SKU.
-                </p>
-              ) : null}
-              {!metadataLoading && selected && !fn6HasAssignableStock(selectedItem) ? (
-                <p className="text-xs text-destructive">
-                  Unavailable for assignment — GWEB quantity must be at least 1.
-                </p>
-              ) : null}
 
               <Fn6ItemMetadataPanel
                 item={metadataItem}
                 loading={metadataLoading}
-                showInventoryCompare={showInventoryCompare}
-                shopifyInventoryQuantity={selectedListed?.inventory_quantity ?? null}
-                shopifyInventoryTracked={selectedListed?.inventory_tracked ?? null}
+                hideQuantity
               />
 
               {(customerOptionTypes || []).map((type, typeIdx) => {

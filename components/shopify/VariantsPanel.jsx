@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
 import ShopifyVariantsEditor from './ShopifyVariantsEditor';
+import CodeChainsEditor from './CodeChainsEditor';
 import VariantTypesEditor from './VariantTypesEditor';
 
 export default function VariantsPanel({ item }) {
@@ -163,6 +164,25 @@ export default function VariantsPanel({ item }) {
 
       <Separator />
 
+      <section
+        className="rounded-lg border border-border/80 bg-muted/5 p-4 sm:p-5"
+        aria-label="Code chains"
+      >
+        <CodeChainsEditor
+          productId={productId}
+          mco={item.mco}
+          disabled={!published || variantTypesDirty}
+          onVariantsChanged={onRefresh}
+        />
+        {variantTypesDirty ? (
+          <p className="text-xs text-amber-700 dark:text-amber-500 mt-3">
+            Save variant types above before editing code chains.
+          </p>
+        ) : null}
+      </section>
+
+      <Separator />
+
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -204,6 +224,7 @@ export default function VariantsPanel({ item }) {
           productId={productId}
           variants={variants}
           onRefresh={onRefresh}
+          hideSubVariantActions
         />
       </section>
 

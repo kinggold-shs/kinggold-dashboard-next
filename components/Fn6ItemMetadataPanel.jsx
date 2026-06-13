@@ -77,6 +77,7 @@ export default function Fn6ItemMetadataPanel({
   shopifyInventoryQuantity = null,
   shopifyInventoryTracked = null,
   showInventoryCompare = false,
+  hideQuantity = false,
 }) {
   if (loading) {
     return (
@@ -136,10 +137,12 @@ export default function Fn6ItemMetadataPanel({
         <h5 className="dialog-section-title mb-2">Specifications</h5>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2.5">
           <Field label="Weight" value={formatFn6Weight(item)} />
-          <Field
-            label="GWEB quantity"
-            value={fn6Quantity(item) != null ? String(fn6Quantity(item)) : FN6_DASH}
-          />
+          {!hideQuantity ? (
+            <Field
+              label="GWEB quantity"
+              value={fn6Quantity(item) != null ? String(fn6Quantity(item)) : FN6_DASH}
+            />
+          ) : null}
           <Field label="Total price" value={formatFn6Currency(item.price)} />
           <Field label="Gold price / g" value={formatFn6Currency(item.gold_price)} />
           <Field label="USD rate" value={
