@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import { getShopifyToken } from '../../../../../../lib/shopify';
 import {
   advanceChain,
+  applyChainDefaults,
+  enrichChainsForClient,
   enumerateChainOptionCombos,
   fetchCodeChainsMetafield,
   getActiveCode,
-  getNextCode,
-  isChainAvailable,
   mergeChainsWithScaffold,
   migrateSubVariantsToChains,
   parseCodeChains,
@@ -25,15 +25,6 @@ async function loadProductContext(domain, token, productId) {
     return { error: 'Product not found', status: 404 };
   }
   return { product };
-}
-
-function enrichChains(chains) {
-  return (chains || []).map(chain => ({
-    ...chain,
-    activeCode: getActiveCode(chain),
-    nextCode: getNextCode(chain),
-    available: isChainAvailable(chain),
-  }));
 }
 
 export async function GET(request, { params }) {
@@ -57,12 +48,16 @@ export async function GET(request, { params }) {
     const customerOptionTypes = filterCustomerOptionTypes(optionTypes);
     const scaffold = enumerateChainOptionCombos(customerOptionTypes, ctx.product.options);
     const { metafieldId, payload } = await fetchCodeChainsMetafield(domain, token, productId);
-    const chains = mergeChainsWithScaffold(payload.chains, scaffold);
+    let chains = mergeChainsWithScaffold(payload.chains, scaffold);
+    chains = applyChainDefaults(chains, ctx.product.variants, ctx.product.options, mco);
 
     return NextResponse.json({
       productId,
       metafieldId,
-      codeChains: { ...payload, chains: enrichChains(chains) },
+      codeChains: {
+        ...payload,
+        chains: enrichChainsForClient(chains, ctx.product.variants, ctx.product.options, mco),
+      },
       variants: ctx.product.variants,
       options: ctx.product.options,
       customerOptionTypes,
@@ -91,13 +86,20 @@ export async function PUT(request, { params }) {
     } catch (err) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
-    payload.chains = (payload.chains || []).filter(c => (c.codes || []).length > 0);
 
     const { token, domain } = await getShopifyToken();
     const ctx = await loadProductContext(domain, token, productId);
     if (ctx.error) {
       return NextResponse.json({ error: ctx.error }, { status: ctx.status });
     }
+
+    payload.chains = applyChainDefaults(
+      payload.chains || [],
+      ctx.product.variants,
+      ctx.product.options,
+      mco,
+    );
+    payload.chains = payload.chains.filter(c => (c.codes || []).length > 0);
 
     const optionTypes = productOptionTypes(ctx.product.options);
     const customerOptionTypes = filterCustomerOptionTypes(optionTypes);
@@ -136,7 +138,12 @@ export async function PUT(request, { params }) {
       productId,
       codeChains: {
         ...saved,
-        chains: enrichChains(syncResult.chains),
+        chains: enrichChainsForClient(
+          syncResult.chains,
+          syncResult.variants || ctx.product.variants,
+          ctx.product.options,
+          mco,
+        ),
       },
       variants: syncResult.variants,
     });
@@ -170,10 +177,24 @@ export async function POST(request, { params }) {
         customerOptionTypes,
         ctx.product.options,
       );
+      migrated.chains = applyChainDefaults(
+        migrated.chains,
+        ctx.product.variants,
+        ctx.product.options,
+        mco,
+      );
       const { metafieldId } = await fetchCodeChainsMetafield(domain, token, productId);
       const saved = await saveCodeChainsMetafield(domain, token, productId, migrated, metafieldId);
       return NextResponse.json({
-        codeChains: { ...saved, chains: enrichChains(saved.chains) },
+        codeChains: {
+          ...saved,
+          chains: enrichChainsForClient(
+            saved.chains,
+            ctx.product.variants,
+            ctx.product.options,
+            mco,
+          ),
+        },
       });
     }
 
@@ -201,7 +222,15 @@ export async function POST(request, { params }) {
       return NextResponse.json({
         soldCode: active,
         nextCode: getActiveCode(advanced),
-        codeChains: { ...saved, chains: enrichChains(syncResult.chains) },
+        codeChains: {
+          ...saved,
+          chains: enrichChainsForClient(
+            syncResult.chains,
+            syncResult.variants || ctx.product.variants,
+            ctx.product.options,
+            mco,
+          ),
+        },
         variants: syncResult.variants,
       });
     }

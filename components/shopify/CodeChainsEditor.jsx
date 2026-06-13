@@ -56,6 +56,7 @@ function ChainRow({
   onMoveCode,
 }) {
   const codes = chain.codes || [];
+  const isMainChain = Boolean(chain.isMainChain);
 
   function reservedForSlot(codeIdx) {
     const reserved = new Set(globalReservedCodes || []);
@@ -108,11 +109,17 @@ function ChainRow({
           {codes.map((code, codeIdx) => {
             const isActive = codeIdx === chain.activeIndex;
             const isSold = (chain.soldCodes || []).includes(code);
+            const isPageCodeSlot = isMainChain && codeIdx === 0;
             return (
               <li key={`${chain.key}-${codeIdx}`} className="flex items-center gap-1.5">
-                {isSold ? (
+                {isSold || isPageCodeSlot ? (
                   <div className="h-8 flex-1 flex items-center rounded-md border border-border/60 bg-muted/30 px-2.5 font-mono text-xs text-muted-foreground">
-                    {code}
+                    {isPageCodeSlot ? mco : code}
+                    {isPageCodeSlot ? (
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground/80">
+                        Page code
+                      </span>
+                    ) : null}
                   </div>
                 ) : (
                   <Fn6CodeCombobox
@@ -141,7 +148,7 @@ function ChainRow({
                     type="button"
                     size="icon-sm"
                     variant="ghost"
-                    disabled={disabled || codeIdx === 0 || isSold}
+                    disabled={disabled || codeIdx === 0 || isSold || isPageCodeSlot}
                     onClick={() => onMoveCode(codeIdx, -1)}
                     aria-label="Move up"
                   >
@@ -162,7 +169,7 @@ function ChainRow({
                     size="icon-sm"
                     variant="ghost"
                     className="text-destructive hover:text-destructive"
-                    disabled={disabled || isSold}
+                    disabled={disabled || isSold || isPageCodeSlot}
                     onClick={() => onRemoveCode(codeIdx)}
                     aria-label="Remove code"
                   >
@@ -350,6 +357,9 @@ export default function CodeChainsEditor({
           <h4 className="text-sm font-semibold">Code chains</h4>
           <p className="text-xs text-muted-foreground mt-0.5">
             Each variant option combo gets an ordered FN6 code queue. Only the active code is available on the storefront.
+            {mco ? (
+              <> The main variant chain always starts with page code <code>{mco}</code>.</>
+            ) : null}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
