@@ -13,7 +13,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '../../components/ui/table';
 import {
-  ScanBarcode, RotateCcw, Package,
+  ScanBarcode, RotateCcw, Package, RefreshCw,
   ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Settings,
 } from 'lucide-react';
 
@@ -99,6 +99,64 @@ export default function ScanPage() {
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
+
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
+  const [bulkError, setBulkError] = useState('');
+
+  const handleBulkSync18k = useCallback(async () => {
+    if (bulkSyncing) return;
+    const ok = window.confirm(
+      'Push 18K prices for ALL FN6 items to Shopify variants?\n\n'
+      + 'This will recompute every item to 18K and update the Shopify variant price '
+      + 'for every item where it differs. This action cannot be undone from this page.',
+    );
+    if (!ok) return;
+
+    setBulkSyncing(true);
+    setBulkError('');
+    setBulkResult(null);
+    try {
+      const updates = [];
+      const PAGE_SIZE_BULK = 100;
+      let bulkPage = 1;
+      const MAX_PAGES = 200;
+      for (;;) {
+        const res = await fn6Api.list({ page: bulkPage, page_size: PAGE_SIZE_BULK });
+        const results = res.data?.results || [];
+        for (const it of results) {
+          if (it?.mco != null && it?.price != null && it.price !== '') {
+            updates.push({ mco: String(it.mco), price: Number(it.price) });
+          }
+        }
+        const count = res.data?.count || 0;
+        if (results.length < PAGE_SIZE_BULK) break;
+        if (bulkPage * PAGE_SIZE_BULK >= count) break;
+        if (bulkPage >= MAX_PAGES) break;
+        bulkPage += 1;
+      }
+
+      if (updates.length === 0) {
+        setBulkResult({ total: 0, updated: 0, skipped: 0, notFound: 0, errors: [] });
+        return;
+      }
+
+      const syncRes = await fetch('/api/shopify/refresh-price-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      const data = await syncRes.json().catch(() => ({}));
+      if (!syncRes.ok) {
+        throw new Error(data?.error || `Bulk sync failed: ${syncRes.status}`);
+      }
+      setBulkResult({ ...data, collected: updates.length });
+    } catch (err) {
+      setBulkError(err?.message || 'Bulk sync failed');
+    } finally {
+      setBulkSyncing(false);
+    }
+  }, [bulkSyncing]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -248,8 +306,53 @@ export default function ScanPage() {
               </div>
               <Button size="sm" className="h-8" onClick={handleStockSearch}>Search</Button>
               {searchParam && <Button size="sm" variant="ghost" className="h-8" onClick={handleStockClear}>Clear</Button>}
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={handleBulkSync18k}
+                disabled={bulkSyncing}
+                title="Recompute all items to 18K and push to Shopify variants"
+              >
+                <RefreshCw size={14} className={`mr-1 ${bulkSyncing ? 'animate-spin' : ''}`} />
+                {bulkSyncing ? 'Syncing 18K…' : 'Sync 18K → Shopify'}
+              </Button>
             </div>
           </div>
+
+          {bulkError && (
+            <div className="scan-error animate-slideDown">
+              <Package size={16} className="shrink-0" />
+              <span>Bulk sync failed: {bulkError}</span>
+            </div>
+          )}
+          {bulkResult && !bulkError && (
+            <div className="scan-result animate-fadeIn" style={{ padding: '0.75rem 1rem' }}>
+              <p className="text-sm">
+                18K sync done — <strong>{bulkResult.updated}</strong> updated,{' '}
+                <strong>{bulkResult.skipped}</strong> already correct,{' '}
+                <strong>{bulkResult.notFound}</strong> not on Shopify,{' '}
+                <strong>{bulkResult.errors?.length || 0}</strong> errors
+                {bulkResult.collected != null && (
+                  <span className="text-muted-foreground"> · {bulkResult.collected} items collected</span>
+                )}
+                {bulkResult.elapsedMs != null && (
+                  <span className="text-muted-foreground"> · {Math.round(bulkResult.elapsedMs / 1000)}s</span>
+                )}
+              </p>
+              {bulkResult.errors?.length > 0 && (
+                <details className="mt-2 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">Show errors</summary>
+                  <ul className="mt-1 space-y-0.5">
+                    {bulkResult.errors.slice(0, 20).map((e, i) => (
+                      <li key={i}>{e.sku || '(no sku)'}: {e.message}</li>
+                    ))}
+                    {bulkResult.errors.length > 20 && <li>…and {bulkResult.errors.length - 20} more</li>}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
 
           {listLoading ? (
             <div className="table-wrap p-4 space-y-3">
