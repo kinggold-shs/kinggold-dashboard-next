@@ -37,6 +37,15 @@ function formatNumber(v) {
   return new Intl.NumberFormat('en-US').format(v);
 }
 
+function formatElapsed(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}m ${sec}s`;
+}
+
 function Field({ label, value }) {
   return (
     <div className="scan-field">
@@ -103,6 +112,7 @@ export default function ScanPage() {
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
   const [bulkError, setBulkError] = useState('');
+  const [bulkProgress, setBulkProgress] = useState(null);
 
   const handleBulkSync18k = useCallback(async () => {
     if (bulkSyncing) return;
@@ -116,7 +126,13 @@ export default function ScanPage() {
     setBulkSyncing(true);
     setBulkError('');
     setBulkResult(null);
+    setBulkProgress({ batch: 0, totalBatches: 0, done: 0, total: 0 });
+
+    const startTime = Date.now();
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
     try {
+      // 1) Collect all FN6 items (18K prices applied client-side via axios interceptor).
       const updates = [];
       const PAGE_SIZE_BULK = 100;
       let bulkPage = 1;
@@ -137,24 +153,68 @@ export default function ScanPage() {
       }
 
       if (updates.length === 0) {
-        setBulkResult({ total: 0, updated: 0, skipped: 0, notFound: 0, errors: [] });
+        setBulkResult({
+          total: 0, updated: 0, skipped: 0, notFound: 0, errors: [],
+          collected: 0, failedBatches: [], elapsedMs: Date.now() - startTime,
+        });
         return;
       }
 
-      const syncRes = await fetch('/api/shopify/refresh-price-bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates }),
-      });
-      const data = await syncRes.json().catch(() => ({}));
-      if (!syncRes.ok) {
-        throw new Error(data?.error || `Bulk sync failed: ${syncRes.status}`);
+      // 2) Chunk into small batches so each serverless call stays under
+      //    Vercel's 10s hobby-plan function timeout.
+      const BATCH_SIZE = 10;
+      const batches = [];
+      for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+        batches.push(updates.slice(i, i + BATCH_SIZE));
       }
-      setBulkResult({ ...data, collected: updates.length });
+
+      const agg = { total: 0, updated: 0, skipped: 0, notFound: 0, errors: [], failedBatches: [] };
+
+      for (let bi = 0; bi < batches.length; bi += 1) {
+        const batch = batches[bi];
+        setBulkProgress({
+          batch: bi + 1, totalBatches: batches.length,
+          done: agg.total, total: updates.length,
+          updated: agg.updated, skipped: agg.skipped, notFound: agg.notFound,
+          errors: agg.errors.length, failedBatches: agg.failedBatches.length,
+        });
+
+        try {
+          const syncRes = await fetch('/api/shopify/refresh-price-bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates: batch }),
+          });
+          const data = await syncRes.json().catch(() => ({}));
+          if (!syncRes.ok) {
+            throw new Error(data?.error || `HTTP ${syncRes.status}`);
+          }
+          agg.total += data.total || 0;
+          agg.updated += data.updated || 0;
+          agg.skipped += data.skipped || 0;
+          agg.notFound += data.notFound || 0;
+          if (Array.isArray(data.errors)) agg.errors.push(...data.errors);
+        } catch (batchErr) {
+          agg.failedBatches.push({
+            batch: bi + 1,
+            message: batchErr?.message || String(batchErr),
+            skus: batch.map((u) => u.mco),
+          });
+        }
+
+        if (bi < batches.length - 1) await sleep(200);
+      }
+
+      setBulkResult({
+        ...agg,
+        collected: updates.length,
+        elapsedMs: Date.now() - startTime,
+      });
     } catch (err) {
       setBulkError(err?.message || 'Bulk sync failed');
     } finally {
       setBulkSyncing(false);
+      setBulkProgress(null);
     }
   }, [bulkSyncing]);
 
@@ -315,10 +375,28 @@ export default function ScanPage() {
                 title="Recompute all items to 18K and push to Shopify variants"
               >
                 <RefreshCw size={14} className={`mr-1 ${bulkSyncing ? 'animate-spin' : ''}`} />
-                {bulkSyncing ? 'Syncing 18K…' : 'Sync 18K → Shopify'}
+                {bulkSyncing
+                  ? `Syncing 18K… ${bulkProgress?.batch || 0}/${bulkProgress?.totalBatches || 0}`
+                  : 'Sync 18K → Shopify'}
               </Button>
             </div>
           </div>
+
+          {bulkSyncing && bulkProgress && (
+            <div className="scan-result animate-fadeIn" style={{ padding: '0.5rem 1rem' }}>
+              <p className="text-xs text-muted-foreground">
+                Batch <strong className="text-foreground">{bulkProgress.batch}</strong> of{' '}
+                <strong className="text-foreground">{bulkProgress.totalBatches}</strong>
+                {' · '}
+                {bulkProgress.done}/{bulkProgress.total} items processed
+                {bulkProgress.updated > 0 && <> · <strong className="text-foreground">{bulkProgress.updated}</strong> updated</>}
+                {bulkProgress.skipped > 0 && <> · <strong className="text-foreground">{bulkProgress.skipped}</strong> already correct</>}
+                {bulkProgress.notFound > 0 && <> · <strong className="text-foreground">{bulkProgress.notFound}</strong> not on Shopify</>}
+                {bulkProgress.errors > 0 && <> · <strong className="text-foreground">{bulkProgress.errors}</strong> errors</>}
+                {bulkProgress.failedBatches > 0 && <> · <strong className="text-destructive">{bulkProgress.failedBatches}</strong> failed batches</>}
+              </p>
+            </div>
+          )}
 
           {bulkError && (
             <div className="scan-error animate-slideDown">
@@ -333,11 +411,14 @@ export default function ScanPage() {
                 <strong>{bulkResult.skipped}</strong> already correct,{' '}
                 <strong>{bulkResult.notFound}</strong> not on Shopify,{' '}
                 <strong>{bulkResult.errors?.length || 0}</strong> errors
+                {bulkResult.failedBatches?.length > 0 && (
+                  <span className="text-destructive"> · <strong>{bulkResult.failedBatches.length}</strong> failed batches</span>
+                )}
                 {bulkResult.collected != null && (
                   <span className="text-muted-foreground"> · {bulkResult.collected} items collected</span>
                 )}
                 {bulkResult.elapsedMs != null && (
-                  <span className="text-muted-foreground"> · {Math.round(bulkResult.elapsedMs / 1000)}s</span>
+                  <span className="text-muted-foreground"> · {formatElapsed(bulkResult.elapsedMs)}</span>
                 )}
               </p>
               {bulkResult.errors?.length > 0 && (
@@ -348,6 +429,16 @@ export default function ScanPage() {
                       <li key={i}>{e.sku || '(no sku)'}: {e.message}</li>
                     ))}
                     {bulkResult.errors.length > 20 && <li>…and {bulkResult.errors.length - 20} more</li>}
+                  </ul>
+                </details>
+              )}
+              {bulkResult.failedBatches?.length > 0 && (
+                <details className="mt-2 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">Show failed batches</summary>
+                  <ul className="mt-1 space-y-0.5">
+                    {bulkResult.failedBatches.map((b, i) => (
+                      <li key={i}>Batch {b.batch}: {b.message} ({b.skus.length} SKUs)</li>
+                    ))}
                   </ul>
                 </details>
               )}

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getShopifyToken } from '../../../../lib/shopify';
-import { findShopifyProduct } from '../../../../lib/shopifyProductLookup';
+import { findShopifyVariantBySkuOnly } from '../../../../lib/shopifyProductLookup';
 import { putShopifyVariantPrice } from '../../../../lib/refreshVariantPrice';
 
 export const runtime = 'nodejs';
@@ -61,28 +61,28 @@ export async function POST(request) {
     }
     summary.total += 1;
 
-    const roundedNew = String(Math.round(newPriceNum / 5) * 5);
-    try {
-      const shopify = await findShopifyProduct(domain, token, { sku });
-      if (!shopify?.found || !shopify?.variantId) {
-        summary.notFound += 1;
-        continue;
+      const roundedNew = String(Math.round(newPriceNum / 5) * 5);
+      try {
+        const shopify = await findShopifyVariantBySkuOnly(domain, token, sku);
+        if (!shopify?.found || !shopify?.variantId) {
+          summary.notFound += 1;
+          continue;
+        }
+        const currentPrice = shopify.price != null && shopify.price !== ''
+          ? String(Math.round(Number(shopify.price) / 5) * 5)
+          : null;
+        if (currentPrice === roundedNew) {
+          summary.skipped += 1;
+          continue;
+        }
+        if (!dryRun) {
+          await putShopifyVariantPrice(domain, token, shopify.variantId, roundedNew);
+          await sleep(SHOPIFY_THROTTLE_MS);
+        }
+        summary.updated += 1;
+      } catch (err) {
+        summary.errors.push({ sku, message: err.message || String(err) });
       }
-      const currentPrice = shopify.price != null && shopify.price !== ''
-        ? String(Math.round(Number(shopify.price) / 5) * 5)
-        : null;
-      if (currentPrice === roundedNew) {
-        summary.skipped += 1;
-        continue;
-      }
-      if (!dryRun) {
-        await putShopifyVariantPrice(domain, token, shopify.variantId, roundedNew);
-        await sleep(SHOPIFY_THROTTLE_MS);
-      }
-      summary.updated += 1;
-    } catch (err) {
-      summary.errors.push({ sku, message: err.message || String(err) });
-    }
   }
 
   return NextResponse.json({
