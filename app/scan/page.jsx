@@ -13,7 +13,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '../../components/ui/table';
 import {
-  ScanBarcode, RotateCcw, Package, RefreshCw,
+  ScanBarcode, RotateCcw, Package, RefreshCw, Tags,
   ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Settings,
 } from 'lucide-react';
 
@@ -113,6 +113,11 @@ export default function ScanPage() {
   const [bulkResult, setBulkResult] = useState(null);
   const [bulkError, setBulkError] = useState('');
   const [bulkProgress, setBulkProgress] = useState(null);
+
+  const [metaSyncing, setMetaSyncing] = useState(false);
+  const [metaResult, setMetaResult] = useState(null);
+  const [metaError, setMetaError] = useState('');
+  const [metaProgress, setMetaProgress] = useState(null);
 
   const handleBulkSync18k = useCallback(async () => {
     if (bulkSyncing) return;
@@ -217,6 +222,93 @@ export default function ScanPage() {
       setBulkProgress(null);
     }
   }, [bulkSyncing]);
+
+  const handleBulkSyncMetafields = useCallback(async () => {
+    if (metaSyncing) return;
+    const ok = window.confirm(
+      'Backfill gweb_weight / gweb_prc / gweb_prcus metafields on ALL Shopify variants?\n\n'
+      + 'Required for the theme to compute 18K prices locally. One-time operation.',
+    );
+    if (!ok) return;
+
+    setMetaSyncing(true);
+    setMetaError('');
+    setMetaResult(null);
+    setMetaProgress({ batch: 0, totalBatches: 0, done: 0, total: 0 });
+
+    const startTime = Date.now();
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    try {
+      // 1) Collect all FN6 items with their raw weight / prc / prcus.
+      const items = [];
+      const PAGE_SIZE = 100;
+      let pg = 1;
+      for (;;) {
+        const res = await fn6Api.list({ page: pg, page_size: PAGE_SIZE });
+        const results = res.data?.results || [];
+        for (const it of results) {
+          if (it?.mco != null) {
+            items.push({
+              mco: String(it.mco),
+              weight: it.go_cr ?? null,
+              prc: it.prc ?? null,
+              prcus: it.prcus ?? null,
+            });
+          }
+        }
+        const count = res.data?.count || 0;
+        if (results.length < PAGE_SIZE) break;
+        if (pg * PAGE_SIZE >= count) break;
+        pg += 1;
+      }
+
+      if (items.length === 0) {
+        setMetaResult({ total: 0, updated: 0, skipped: 0, notFound: 0, errors: [], failedBatches: [], elapsedMs: Date.now() - startTime });
+        return;
+      }
+
+      const BATCH_SIZE = 10;
+      const batches = [];
+      for (let i = 0; i < items.length; i += BATCH_SIZE) batches.push(items.slice(i, i + BATCH_SIZE));
+
+      const agg = { total: 0, updated: 0, skipped: 0, notFound: 0, errors: [], failedBatches: [] };
+
+      for (let bi = 0; bi < batches.length; bi += 1) {
+        const batch = batches[bi];
+        setMetaProgress({
+          batch: bi + 1, totalBatches: batches.length,
+          done: agg.total, total: items.length,
+          updated: agg.updated, notFound: agg.notFound,
+          errors: agg.errors.length, failedBatches: agg.failedBatches.length,
+        });
+        try {
+          const res = await fetch('/api/shopify/sync-metafields-bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: batch }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+          agg.total += data.total || 0;
+          agg.updated += data.updated || 0;
+          agg.skipped += data.skipped || 0;
+          agg.notFound += data.notFound || 0;
+          if (Array.isArray(data.errors)) agg.errors.push(...data.errors);
+        } catch (batchErr) {
+          agg.failedBatches.push({ batch: bi + 1, message: batchErr?.message || String(batchErr), skus: batch.map((u) => u.mco) });
+        }
+        if (bi < batches.length - 1) await sleep(200);
+      }
+
+      setMetaResult({ ...agg, collected: items.length, elapsedMs: Date.now() - startTime });
+    } catch (err) {
+      setMetaError(err?.message || 'Metafield sync failed');
+    } finally {
+      setMetaSyncing(false);
+      setMetaProgress(null);
+    }
+  }, [metaSyncing]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -379,6 +471,19 @@ export default function ScanPage() {
                   ? `Syncing 18K… ${bulkProgress?.batch || 0}/${bulkProgress?.totalBatches || 0}`
                   : 'Sync 18K → Shopify'}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={handleBulkSyncMetafields}
+                disabled={metaSyncing}
+                title="Backfill gweb_weight / gweb_prc / gweb_prcus metafields on all variants (one-time)"
+              >
+                <Tags size={14} className={`mr-1 ${metaSyncing ? 'animate-spin' : ''}`} />
+                {metaSyncing
+                  ? `Syncing meta… ${metaProgress?.batch || 0}/${metaProgress?.totalBatches || 0}`
+                  : 'Sync metafields'}
+              </Button>
             </div>
           </div>
 
@@ -439,6 +544,57 @@ export default function ScanPage() {
                     {bulkResult.failedBatches.map((b, i) => (
                       <li key={i}>Batch {b.batch}: {b.message} ({b.skus.length} SKUs)</li>
                     ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+
+          {metaSyncing && metaProgress && (
+            <div className="scan-result animate-fadeIn" style={{ padding: '0.5rem 1rem' }}>
+              <p className="text-xs text-muted-foreground">
+                Meta batch <strong className="text-foreground">{metaProgress.batch}</strong> of{' '}
+                <strong className="text-foreground">{metaProgress.totalBatches}</strong>
+                {' · '}
+                {metaProgress.done}/{metaProgress.total} items processed
+                {metaProgress.updated > 0 && <> · <strong className="text-foreground">{metaProgress.updated}</strong> updated</>}
+                {metaProgress.notFound > 0 && <> · <strong className="text-foreground">{metaProgress.notFound}</strong> not on Shopify</>}
+                {metaProgress.errors > 0 && <> · <strong className="text-foreground">{metaProgress.errors}</strong> errors</>}
+                {metaProgress.failedBatches > 0 && <> · <strong className="text-destructive">{metaProgress.failedBatches}</strong> failed batches</>}
+              </p>
+            </div>
+          )}
+
+          {metaError && (
+            <div className="scan-error animate-slideDown">
+              <Package size={16} className="shrink-0" />
+              <span>Metafield sync failed: {metaError}</span>
+            </div>
+          )}
+          {metaResult && !metaError && (
+            <div className="scan-result animate-fadeIn" style={{ padding: '0.75rem 1rem' }}>
+              <p className="text-sm">
+                Metafield sync done — <strong>{metaResult.updated}</strong> weight metafields written,{' '}
+                <strong>{metaResult.notFound}</strong> not on Shopify,{' '}
+                <strong>{metaResult.errors?.length || 0}</strong> errors
+                {metaResult.failedBatches?.length > 0 && (
+                  <span className="text-destructive"> · <strong>{metaResult.failedBatches.length}</strong> failed batches</span>
+                )}
+                {metaResult.collected != null && (
+                  <span className="text-muted-foreground"> · {metaResult.collected} items collected</span>
+                )}
+                {metaResult.elapsedMs != null && (
+                  <span className="text-muted-foreground"> · {formatElapsed(metaResult.elapsedMs)}</span>
+                )}
+              </p>
+              {metaResult.errors?.length > 0 && (
+                <details className="mt-2 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">Show errors</summary>
+                  <ul className="mt-1 space-y-0.5">
+                    {metaResult.errors.slice(0, 20).map((e, i) => (
+                      <li key={i}>{e.sku || '(no sku)'}: {e.message}</li>
+                    ))}
+                    {metaResult.errors.length > 20 && <li>…and {metaResult.errors.length - 20} more</li>}
                   </ul>
                 </details>
               )}
