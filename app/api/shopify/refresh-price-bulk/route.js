@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { getShopifyToken } from '../../../../lib/shopify';
 import { findShopifyVariantBySkuOnly } from '../../../../lib/shopifyProductLookup';
 import { putShopifyVariantPrice } from '../../../../lib/refreshVariantPrice';
+import {
+  formatGwebWeightDisplay,
+  upsertVariantGwebWeightMetafield,
+  upsertVariantGwebPrcMetafield,
+  upsertVariantGwebPrcusMetafield,
+} from '../../../../lib/gwebWeightMetafield';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,13 +19,10 @@ function sleep(ms) {
 }
 
 /**
- * POST — one-time bulk sync of FN6 (forced to 18K) prices to Shopify variants.
+ * POST — bulk sync of 18K prices + metafields to Shopify variants.
  *
- * The client paginates the Gweb FN6 list (with the 18K axios interceptor
- * applied) and posts the resolved `{ mco, price }` pairs here. This route
- * only needs Shopify access — no Gweb auth required server-side.
- *
- * Body: { updates: Array<{ mco: string, price: number|string }>, dryRun?: boolean }
+ * Called automatically by gweb's shopify_sync.py on every gp save (gold price change).
+ * Body: { updates: Array<{ mco, price, weight?, prc?, prcus? }>, dryRun?: boolean }
  * Returns: { total, updated, skipped, notFound, errors, dryRun, elapsedMs }
  */
 export async function POST(request) {
@@ -71,15 +74,38 @@ export async function POST(request) {
         const currentPrice = shopify.price != null && shopify.price !== ''
           ? String(Math.round(Number(shopify.price) / 5) * 5)
           : null;
-        if (currentPrice === roundedNew) {
-          summary.skipped += 1;
-          continue;
-        }
+        const priceChanged = currentPrice !== roundedNew;
         if (!dryRun) {
-          await putShopifyVariantPrice(domain, token, shopify.variantId, roundedNew);
-          await sleep(SHOPIFY_THROTTLE_MS);
+          if (priceChanged) {
+            await putShopifyVariantPrice(domain, token, shopify.variantId, roundedNew);
+            await sleep(SHOPIFY_THROTTLE_MS);
+          }
+          // Always sync metafields so theme can compute prices locally
+          const weightRaw = entry?.weight;
+          if (weightRaw != null && weightRaw !== '') {
+            try {
+              const w = formatGwebWeightDisplay(weightRaw);
+              if (w) await upsertVariantGwebWeightMetafield(domain, token, shopify.variantId, w);
+            } catch (e) { summary.errors.push({ sku, message: `metafield weight: ${e.message}` }); }
+          }
+          const prcRaw = entry?.prc;
+          if (prcRaw != null && prcRaw !== '' && Number(prcRaw) !== 0) {
+            try {
+              await upsertVariantGwebPrcMetafield(domain, token, shopify.variantId, prcRaw);
+            } catch (e) { summary.errors.push({ sku, message: `metafield prc: ${e.message}` }); }
+          }
+          const prcusRaw = entry?.prcus;
+          if (prcusRaw != null && prcusRaw !== '' && Number(prcusRaw) !== 0) {
+            try {
+              await upsertVariantGwebPrcusMetafield(domain, token, shopify.variantId, prcusRaw);
+            } catch (e) { summary.errors.push({ sku, message: `metafield prcus: ${e.message}` }); }
+          }
         }
-        summary.updated += 1;
+        if (priceChanged) {
+          summary.updated += 1;
+        } else {
+          summary.skipped += 1;
+        }
       } catch (err) {
         summary.errors.push({ sku, message: err.message || String(err) });
       }
