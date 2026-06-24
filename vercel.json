@@ -2,5 +2,11 @@
   "framework": "nextjs",
   "env": {
     "NEXT_PUBLIC_API_BASE_URL": "https://kinggoldretail.e-jewelry-softwarehouse.com"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/shopify/reconcile",
+      "schedule": "0 1 * * *"
+    }
+  ]
 }
