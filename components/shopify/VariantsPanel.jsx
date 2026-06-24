@@ -68,8 +68,22 @@ export default function VariantsPanel({ item }) {
     setLoading(true);
     setError('');
     setSyncError('');
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const maxRetries = 4;
     try {
-      const lookup = await lookupShopifyProduct(item);
+      let lookup, data;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          lookup = await lookupShopifyProduct(item);
+          break;
+        } catch (err) {
+          if (attempt < maxRetries && /exceeded|rate.?limit|429/i.test(err.message || '')) {
+            await sleep(1000 * (attempt + 1));
+            continue;
+          }
+          throw err;
+        }
+      }
       if (!lookup.found || !lookup.productId) {
         setProductId(null);
         setPublished(false);
@@ -79,9 +93,22 @@ export default function VariantsPanel({ item }) {
       }
       setProductId(lookup.productId);
       setPublished(lookup.status !== 'draft');
-      const data = await fetchVariantGroups(lookup.productId);
+      await sleep(600);
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          data = await fetchVariantGroups(lookup.productId);
+          break;
+        } catch (err) {
+          if (attempt < maxRetries && /exceeded|rate.?limit|429/i.test(err.message || '')) {
+            await sleep(1000 * (attempt + 1));
+            continue;
+          }
+          throw err;
+        }
+      }
       applyProductData(data);
       try {
+        await sleep(600);
         await syncMetafield(lookup.productId, item.mco, data.variants || []);
       } catch (syncErr) {
         setSyncError(syncErr.message || 'Failed to sync variant groups metafield');
