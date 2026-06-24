@@ -12,7 +12,7 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SHOPIFY_THROTTLE_MS = 200;
+const SHOPIFY_THROTTLE_MS = 500;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
