@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Input } from '../ui/input';
 import { fetchShopifyProducts, removeShopifyItem } from '../../lib/shopifyItemWorkflow';
+import { useLivePrices } from '../../hooks/useLivePrices';
 
 export default function ItemsListTab({ onManageSku }) {
   const [pageInfo, setPageInfo] = useState('');
@@ -24,6 +25,14 @@ export default function ItemsListTab({ onManageSku }) {
 
   const products = data?.products || [];
   const pagination = data?.pagination || {};
+
+  const productSkus = useMemo(
+    () => products.map((p) => String(p.variants?.[0]?.sku || '')).filter(Boolean),
+    [products],
+  );
+  const { data: livePricesData } = useLivePrices(productSkus, products.length > 0);
+  const livePrices = livePricesData?.prices || {};
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return products;
@@ -97,8 +106,12 @@ export default function ItemsListTab({ onManageSku }) {
           {filtered.map((product) => {
             const image = product.images?.[0]?.src;
             const sku = product.variants?.[0]?.sku;
-            const price = product.variants?.[0]?.price;
+            const storedPrice = product.variants?.[0]?.price;
             const status = product.status || 'draft';
+            const liveEntry = sku ? livePrices[String(sku)] : null;
+            const livePrice = liveEntry?.found ? liveEntry.price : null;
+            const displayPrice = livePrice ?? storedPrice;
+            const isLive = livePrice != null;
             return (
               <Card key={product.id} className="overflow-hidden">
                 <CardContent className="p-0">
@@ -117,12 +130,20 @@ export default function ItemsListTab({ onManageSku }) {
                       {sku ? <span className="text-xs font-mono text-muted-foreground">#{sku}</span> : null}
                     </div>
                     <p className="font-semibold leading-snug">{product.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {price ? `EGP ${Number(price).toLocaleString('en-EG', { minimumFractionDigits: 2 })}` : 'No price'}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {displayPrice ? `EGP ${Number(displayPrice).toLocaleString('en-EG', { minimumFractionDigits: 0 })}` : 'No price'}
+                      </p>
+                      {isLive && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600 bg-green-50 dark:bg-green-950/30 px-1.5 py-0.5 rounded">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                          LIVE
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <a
-                        href={`https://king-gold-5755.myshopify.com/products/${product.handle}`}
+                        href={`https://www.kinggoldeg.com/products/${product.handle}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-gold-600 hover:underline"
