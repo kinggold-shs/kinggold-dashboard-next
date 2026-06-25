@@ -11,12 +11,9 @@ import { Badge } from '../components/ui/badge';
 import { TYPE_LABELS, TYPE_COLORS } from '../constants/fn6';
 import { X } from 'lucide-react';
 
-const DASH = '—';
+import { formatFn6Currency } from '../lib/fn6ItemFields';
 
-function formatCurrency(v) {
-  if (v == null || isNaN(v)) return DASH;
-  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(v);
-}
+const DASH = '—';
 
 function Field({ label, value }) {
   return (
@@ -80,8 +77,8 @@ export default function Fn6DetailModal({ item, onClose }) {
           <div className="dialog-section">
             <div className="dialog-section-title">Specifications</div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Price (EGP)" value={item?.price != null ? formatCurrency(item.price) : DASH} />
-              <Field label="Total Price" value={item?.total_price != null ? formatCurrency(item.total_price) : DASH} />
+              <Field label="Price (EGP)" value={item?.price != null ? formatFn6Currency(item.price) : DASH} />
+              <Field label="Total Price" value={item?.total_price != null ? formatFn6Currency(item.total_price) : DASH} />
               <Field label="Weight (g)" value={item?.weight != null ? `${Number(item.weight).toFixed(3)} g` : DASH} />
               <Field label="Total Weight" value={item?.total_weight != null ? `${Number(item.total_weight).toFixed(3)} g` : DASH} />
               <Field label="Mfg / g" value={item?.manufacturing || DASH} />

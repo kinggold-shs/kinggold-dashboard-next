@@ -5,6 +5,7 @@ import { fn6Api } from '../../api/fn6';
 import { shopifyBinaryInventoryPayload } from '../../lib/fn6ItemFields';
 import Fn6ItemMetadataPanel from '../Fn6ItemMetadataPanel';
 import { AlertCircle, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
@@ -47,6 +48,7 @@ import {
   variantToOptionPayload,
 } from '../../lib/variantModel';
 import AddSubVariantDialog from './AddSubVariantDialog';
+import { computeFn6Price, roundToNearest5, applyFn6Price18k } from '../../lib/fn6Price18k';
 
 const UNSET = '__unset__';
 
@@ -147,18 +149,15 @@ function SubVariantFormRow({
   );
 }
 
-function roundedFn6Price(item) {
-  if (!item || item.price == null || item.price === '') return '';
-  return String(Math.round(Number(item.price)));
-}
-
-function subFormFromVariant(variant, optionTypes, shopifyOptions) {
+function subFormFromVariant(variant, optionTypes, shopifyOptions, livePriceMap, mco) {
   const selectedByName = variantToOptionPayload(variant, optionTypes, shopifyOptions);
+  const sku = variant.sku || '';
+  const mappedPrice = sku ? livePriceMap[sku] : (mco ? livePriceMap[mco] : null);
   return {
     id: variant.id,
     selectedByName,
-    sku: variant.sku || '',
-    price: variant.price != null && variant.price !== '' ? String(variant.price) : '',
+    sku,
+    price: mappedPrice != null ? String(mappedPrice) : '',
   };
 }
 
@@ -187,6 +186,39 @@ export default function ShopifyVariantsEditor({
   const [metaItem, setMetaItem] = useState(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const metaGen = useRef(0);
+  const [goldRate, setGoldRate] = useState(null);
+  const [livePriceMap, setLivePriceMap] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/shopify/gold-price')
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled) setGoldRate({ pr18: data.pr18, usdRate: data.usd_rate });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!goldRate) return;
+    const skus = new Set();
+    if (mco) skus.add(mco);
+    variants.forEach(v => { if (v.sku) skus.add(v.sku); });
+    let cancelled = false;
+    const results = {};
+    Promise.all([...skus].map(async (sku) => {
+      try {
+        const res = await fn6Api.getByMco(sku);
+        if (cancelled) return;
+        const price = applyFn6Price18k(res.data, goldRate.pr18, goldRate.usdRate);
+        if (price != null) results[sku] = price;
+      } catch { /* skip */ }
+    })).then(() => {
+      if (!cancelled) setLivePriceMap(results);
+    });
+    return () => { cancelled = true; };
+  }, [variants, mainVariant, mco, goldRate, fn6Api]);
 
   const subVariants = useMemo(
     () => variants.filter(v => !mainVariant || Number(v.id) !== Number(mainVariant.id)),
@@ -280,15 +312,15 @@ export default function ShopifyVariantsEditor({
 
   const isEditingMain = mainVariant && editingId != null && Number(editingId) === Number(mainVariant.id);
 
-  function refreshFormPriceFromFn6(code) {
+  function refreshFormPriceFromFn6(code, rate) {
     const trimmed = String(code || '').trim();
-    if (!trimmed) return;
+    if (!trimmed || !rate) return;
     fn6Api
       .getByMco(trimmed)
       .then(res => {
-        const nextPrice = roundedFn6Price(res.data);
-        if (!nextPrice) return;
-        setForm(prev => (prev ? { ...prev, price: nextPrice } : prev));
+        const price = applyFn6Price18k(res.data, rate.pr18, rate.usdRate);
+        if (price == null) return;
+        setForm(prev => (prev ? { ...prev, price: String(price) } : prev));
       })
       .catch(() => {});
   }
@@ -298,8 +330,8 @@ export default function ShopifyVariantsEditor({
     clearVariantMetadata();
     setRowError('');
     setEditingId(mainVariant.id);
-    setForm(subFormFromVariant(mainVariant, customerOptionTypes, shopifyOptions));
-    refreshFormPriceFromFn6(mco);
+    setForm(subFormFromVariant(mainVariant, customerOptionTypes, shopifyOptions, livePriceMap, mco));
+    refreshFormPriceFromFn6(mco, goldRate);
   }
 
   async function handleSaveMain() {
@@ -314,12 +346,14 @@ export default function ShopifyVariantsEditor({
     setRowError('');
     try {
       let price = form.price;
-      try {
-        const res = await fn6Api.getByMco(mco);
-        const nextPrice = roundedFn6Price(res.data);
-        if (nextPrice) price = nextPrice;
-      } catch {
-        // keep form.price
+      if (goldRate) {
+        try {
+          const res = await fn6Api.getByMco(mco);
+          const computed = applyFn6Price18k(res.data, goldRate.pr18, goldRate.usdRate);
+          if (computed != null) price = String(computed);
+        } catch {
+          // keep form.price
+        }
       }
       await updateShopifyVariant(productId, mainVariant.id, {
         selections: form.selectedByName,
@@ -339,8 +373,8 @@ export default function ShopifyVariantsEditor({
     clearVariantMetadata();
     setRowError('');
     setEditingId(variant.id);
-    setForm(subFormFromVariant(variant, customerOptionTypes, shopifyOptions));
-    refreshFormPriceFromFn6(variant.sku);
+    setForm(subFormFromVariant(variant, customerOptionTypes, shopifyOptions, livePriceMap, mco));
+    refreshFormPriceFromFn6(variant.sku, goldRate);
   }
 
   function cancelEdit() {
@@ -366,8 +400,10 @@ export default function ShopifyVariantsEditor({
         try {
           const res = await fn6Api.getByMco(skuCode);
           inventoryPayload = shopifyBinaryInventoryPayload(true);
-          const nextPrice = roundedFn6Price(res.data);
-          if (nextPrice) price = nextPrice;
+          if (goldRate) {
+            const computed = applyFn6Price18k(res.data, goldRate.pr18, goldRate.usdRate);
+            if (computed != null) price = String(computed);
+          }
         } catch {
           inventoryPayload = {};
         }
@@ -501,7 +537,7 @@ export default function ShopifyVariantsEditor({
                     <code className="text-xs">{mainVariant.sku || mco}</code>
                   </TableCell>
                   <TableCell>
-                    {mainVariant.price != null && mainVariant.price !== '' ? mainVariant.price : '—'}
+                    {livePriceMap[mainVariant.sku || mco] ?? '—'}
                   </TableCell>
                   <TableCell
                     className="text-right sticky right-0 bg-gold-50/70 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]"
@@ -582,7 +618,7 @@ export default function ShopifyVariantsEditor({
                   <TableCell>
                     {v.sku ? <code className="text-xs">{v.sku}</code> : <span className="text-muted-foreground">—</span>}
                   </TableCell>
-                  <TableCell>{v.price != null && v.price !== '' ? v.price : '—'}</TableCell>
+                  <TableCell>{livePriceMap[v.sku] ?? '—'}</TableCell>
                   <TableCell
                     className="text-right sticky right-0 bg-card shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.06)]"
                     onClick={e => e.stopPropagation()}

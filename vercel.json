@@ -5,8 +5,8 @@
   },
   "crons": [
     {
-      "path": "/api/shopify/reconcile",
-      "schedule": "0 1 * * *"
+      "path": "/api/shopify/shop-gold-metafields",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

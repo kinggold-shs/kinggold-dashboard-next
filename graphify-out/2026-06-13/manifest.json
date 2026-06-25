@@ -1,0 +1,877 @@
+{
+  ".agents/skills/impeccable/scripts/cleanup-deprecated.mjs": {
+    "mtime": 1779141981.269755,
+    "ast_hash": "51208407b06e051bb6d8ceab244db39c",
+    "semantic_hash": "51208407b06e051bb6d8ceab244db39c"
+  },
+  ".agents/skills/impeccable/scripts/command-metadata.json": {
+    "mtime": 1779141981.270756,
+    "ast_hash": "b25ed9a4d6c24c83d5af46ec69b99a97",
+    "semantic_hash": "b25ed9a4d6c24c83d5af46ec69b99a97"
+  },
+  ".agents/skills/impeccable/scripts/critique-storage.mjs": {
+    "mtime": 1779141981.270756,
+    "ast_hash": "ded5d270a1bb54cbda63fcb48db41691",
+    "semantic_hash": "ded5d270a1bb54cbda63fcb48db41691"
+  },
+  ".agents/skills/impeccable/scripts/design-parser.mjs": {
+    "mtime": 1779141981.2717557,
+    "ast_hash": "df65268bfe73ad8202ca309c2da3805c",
+    "semantic_hash": "df65268bfe73ad8202ca309c2da3805c"
+  },
+  ".agents/skills/impeccable/scripts/detect-csp.mjs": {
+    "mtime": 1779141981.2717557,
+    "ast_hash": "0d3243060e66ba0d0a64684f9684ecc7",
+    "semantic_hash": "0d3243060e66ba0d0a64684f9684ecc7"
+  },
+  ".agents/skills/impeccable/scripts/impeccable-paths.mjs": {
+    "mtime": 1779141981.2727554,
+    "ast_hash": "0e34c40e77c7a30eeabb1bac897f58a2",
+    "semantic_hash": "0e34c40e77c7a30eeabb1bac897f58a2"
+  },
+  ".agents/skills/impeccable/scripts/is-generated.mjs": {
+    "mtime": 1779141981.2727554,
+    "ast_hash": "81ada1894b5f562b0993fdff1756d82c",
+    "semantic_hash": "81ada1894b5f562b0993fdff1756d82c"
+  },
+  ".agents/skills/impeccable/scripts/live-accept.mjs": {
+    "mtime": 1779141981.2737556,
+    "ast_hash": "feee297789fa52b5901e21bb354e8a4f",
+    "semantic_hash": "feee297789fa52b5901e21bb354e8a4f"
+  },
+  ".agents/skills/impeccable/scripts/live-browser-session.js": {
+    "mtime": 1779141981.2737556,
+    "ast_hash": "e54c01fe1a8287f757161759beaab916",
+    "semantic_hash": "e54c01fe1a8287f757161759beaab916"
+  },
+  ".agents/skills/impeccable/scripts/live-browser.js": {
+    "mtime": 1779141981.275755,
+    "ast_hash": "09d5959c4f68346ac3e032a1e16f8924",
+    "semantic_hash": "09d5959c4f68346ac3e032a1e16f8924"
+  },
+  ".agents/skills/impeccable/scripts/live-complete.mjs": {
+    "mtime": 1779141981.275755,
+    "ast_hash": "0ed6226feb3d80adf38f2098b6d7efd4",
+    "semantic_hash": "0ed6226feb3d80adf38f2098b6d7efd4"
+  },
+  ".agents/skills/impeccable/scripts/live-completion.mjs": {
+    "mtime": 1779141981.2767553,
+    "ast_hash": "c51f1de5c7aae5aa3f2c67f5d9875d3e",
+    "semantic_hash": "c51f1de5c7aae5aa3f2c67f5d9875d3e"
+  },
+  ".agents/skills/impeccable/scripts/live-inject.mjs": {
+    "mtime": 1779141981.2767553,
+    "ast_hash": "01365c3718e920dbeee5eeb9159093fa",
+    "semantic_hash": "01365c3718e920dbeee5eeb9159093fa"
+  },
+  ".agents/skills/impeccable/scripts/live-poll.mjs": {
+    "mtime": 1779141981.277756,
+    "ast_hash": "7b78710647b202a90d99852bdb7a5135",
+    "semantic_hash": "7b78710647b202a90d99852bdb7a5135"
+  },
+  ".agents/skills/impeccable/scripts/live-resume.mjs": {
+    "mtime": 1779141981.277756,
+    "ast_hash": "9187fc4ae434c0573b7c84c95b05f744",
+    "semantic_hash": "9187fc4ae434c0573b7c84c95b05f744"
+  },
+  ".agents/skills/impeccable/scripts/live-server.mjs": {
+    "mtime": 1779141981.2787542,
+    "ast_hash": "c53653a715262a584dbca8e08f2c1dc0",
+    "semantic_hash": "c53653a715262a584dbca8e08f2c1dc0"
+  },
+  ".agents/skills/impeccable/scripts/live-session-store.mjs": {
+    "mtime": 1779141981.2787542,
+    "ast_hash": "b0c628113419432d164204b18587d681",
+    "semantic_hash": "b0c628113419432d164204b18587d681"
+  },
+  ".agents/skills/impeccable/scripts/live-status.mjs": {
+    "mtime": 1779141981.279755,
+    "ast_hash": "f7f787396f44ef06c890f97c45d0ba75",
+    "semantic_hash": "f7f787396f44ef06c890f97c45d0ba75"
+  },
+  ".agents/skills/impeccable/scripts/live-wrap.mjs": {
+    "mtime": 1779141981.279755,
+    "ast_hash": "9612f1254ce763221690053592892110",
+    "semantic_hash": "9612f1254ce763221690053592892110"
+  },
+  ".agents/skills/impeccable/scripts/live.mjs": {
+    "mtime": 1779141981.280755,
+    "ast_hash": "073965c7d10925f8ad9651a336220ee8",
+    "semantic_hash": "073965c7d10925f8ad9651a336220ee8"
+  },
+  ".agents/skills/impeccable/scripts/load-context.mjs": {
+    "mtime": 1779141981.280755,
+    "ast_hash": "f96317a92230153a77069e4f81bd8e11",
+    "semantic_hash": "f96317a92230153a77069e4f81bd8e11"
+  },
+  ".agents/skills/impeccable/scripts/modern-screenshot.umd.js": {
+    "mtime": 1779141981.2817557,
+    "ast_hash": "c6afaf6ebceb162206f6a2e5b0ed653c",
+    "semantic_hash": "c6afaf6ebceb162206f6a2e5b0ed653c"
+  },
+  ".agents/skills/impeccable/scripts/pin.mjs": {
+    "mtime": 1779141981.2817557,
+    "ast_hash": "59e1f8315c2083fb7997e5ff3edfcb57",
+    "semantic_hash": "59e1f8315c2083fb7997e5ff3edfcb57"
+  },
+  "api/axios.js": {
+    "mtime": 1780496105.9967306,
+    "ast_hash": "02bf7dc79707c76352edf9549171aafb",
+    "semantic_hash": "02bf7dc79707c76352edf9549171aafb"
+  },
+  "api/fn6.js": {
+    "mtime": 1779214047.413602,
+    "ast_hash": "0e682feee77bc332bc333bec3796742c",
+    "semantic_hash": "0e682feee77bc332bc333bec3796742c"
+  },
+  "app/api/media/proxy/route.js": {
+    "mtime": 1780496107.2592804,
+    "ast_hash": "5609853484a20d9e93ead5e9dacafbaf",
+    "semantic_hash": "5609853484a20d9e93ead5e9dacafbaf"
+  },
+  "app/api/shopify/collections/route.js": {
+    "mtime": 1780675215.8893409,
+    "ast_hash": "13ca175cc0ee8197eb1a5e32cb4ea954",
+    "semantic_hash": "13ca175cc0ee8197eb1a5e32cb4ea954"
+  },
+  "app/api/shopify/inventory-preflight/route.js": {
+    "mtime": 1780503646.0212317,
+    "ast_hash": "9707363f82d1f85d73e075705cdb7c59",
+    "semantic_hash": "9707363f82d1f85d73e075705cdb7c59"
+  },
+  "app/api/shopify/products/[id]/images/[imageId]/route.js": {
+    "mtime": 1780319731.0442078,
+    "ast_hash": "96f3e75a9b7d7add92562a70d8a3881f",
+    "semantic_hash": "96f3e75a9b7d7add92562a70d8a3881f"
+  },
+  "app/api/shopify/products/[id]/images/route.js": {
+    "mtime": 1780319728.860497,
+    "ast_hash": "1e9c492c11a0089b1e21a778bc435874",
+    "semantic_hash": "1e9c492c11a0089b1e21a778bc435874"
+  },
+  "app/api/shopify/products/[id]/repair-variants/route.js": {
+    "mtime": 1780668946.9013672,
+    "ast_hash": "be3bf69c0dad61d7900440e4d6ec889e",
+    "semantic_hash": "be3bf69c0dad61d7900440e4d6ec889e"
+  },
+  "app/api/shopify/products/[id]/route.js": {
+    "mtime": 1780675265.686684,
+    "ast_hash": "bef277c64ae83f23930916b6d38b70e1",
+    "semantic_hash": "bef277c64ae83f23930916b6d38b70e1"
+  },
+  "app/api/shopify/products/[id]/variant-groups/route.js": {
+    "mtime": 1780492891.260381,
+    "ast_hash": "0d80e3972b348e3a906e393e23ca1bc8",
+    "semantic_hash": "0d80e3972b348e3a906e393e23ca1bc8"
+  },
+  "app/api/shopify/products/[id]/variant-types/route.js": {
+    "mtime": 1780492917.1091113,
+    "ast_hash": "d27a142ea636e98a911302e8f7b12c4b",
+    "semantic_hash": "d27a142ea636e98a911302e8f7b12c4b"
+  },
+  "app/api/shopify/products/[id]/variants/[variantId]/route.js": {
+    "mtime": 1780930976.8243823,
+    "ast_hash": "fd4133300be5ae69001bb05d1a0f9fe7",
+    "semantic_hash": "fd4133300be5ae69001bb05d1a0f9fe7"
+  },
+  "app/api/shopify/products/[id]/variants/route.js": {
+    "mtime": 1780930960.3522613,
+    "ast_hash": "3bba99f2759adeb8a7e8b0f541373bd0",
+    "semantic_hash": "3bba99f2759adeb8a7e8b0f541373bd0"
+  },
+  "app/api/shopify/products/by-sku/route.js": {
+    "mtime": 1780494952.7640045,
+    "ast_hash": "9459d17bc7c324b4670222f6aad5574c",
+    "semantic_hash": "9459d17bc7c324b4670222f6aad5574c"
+  },
+  "app/api/shopify/products/cleanup-discriminators-bulk/route.js": {
+    "mtime": 1780931193.0637994,
+    "ast_hash": "1ac47dec53a0d05cb6314cca9e874c05",
+    "semantic_hash": "1ac47dec53a0d05cb6314cca9e874c05"
+  },
+  "app/api/shopify/products/repair-variants-bulk/route.js": {
+    "mtime": 1780669675.1308408,
+    "ast_hash": "bf7626d7450873835ab0dbb2e3d55f8b",
+    "semantic_hash": "bf7626d7450873835ab0dbb2e3d55f8b"
+  },
+  "app/api/shopify/products/route.js": {
+    "mtime": 1779217449.02529,
+    "ast_hash": "6a5a5ce40eb85bd28e8763cb2ba4a3c8",
+    "semantic_hash": "6a5a5ce40eb85bd28e8763cb2ba4a3c8"
+  },
+  "app/api/shopify/proxy/refresh-price/route.js": {
+    "mtime": 1780504522.2458293,
+    "ast_hash": "ed4ad4ec41c3a4295afd53fd9e14e1bc",
+    "semantic_hash": "ed4ad4ec41c3a4295afd53fd9e14e1bc"
+  },
+  "app/api/shopify/publish/route.js": {
+    "mtime": 1780675219.003815,
+    "ast_hash": "17f98a30a25d6d8fe0dd4d3e47d36381",
+    "semantic_hash": "17f98a30a25d6d8fe0dd4d3e47d36381"
+  },
+  "app/api/shopify/refresh-price/route.js": {
+    "mtime": 1780506272.1673071,
+    "ast_hash": "73058adba9d2db5e985cba40550c3a14",
+    "semantic_hash": "73058adba9d2db5e985cba40550c3a14"
+  },
+  "app/api/shopify/variant-options/route.js": {
+    "mtime": 1780492915.4330528,
+    "ast_hash": "b6519812b9d499e279fff9a529ad0c10",
+    "semantic_hash": "b6519812b9d499e279fff9a529ad0c10"
+  },
+  "app/dashboard/layout.jsx": {
+    "mtime": 1779137067.6549602,
+    "ast_hash": "6cfb65538858b4774bafd440188f185d",
+    "semantic_hash": "6cfb65538858b4774bafd440188f185d"
+  },
+  "app/dashboard/page.jsx": {
+    "mtime": 1779212654.59403,
+    "ast_hash": "d971eb54be0ad4c918a85c5a98adc52c",
+    "semantic_hash": "d971eb54be0ad4c918a85c5a98adc52c"
+  },
+  "app/layout.jsx": {
+    "mtime": 1779220500.712399,
+    "ast_hash": "1bd109b91d1b4cd6cdab0c31261acc85",
+    "semantic_hash": "1bd109b91d1b4cd6cdab0c31261acc85"
+  },
+  "app/login/page.jsx": {
+    "mtime": 1779220508.3542864,
+    "ast_hash": "c928bec5a30520c3ea198b495b74c8e8",
+    "semantic_hash": "c928bec5a30520c3ea198b495b74c8e8"
+  },
+  "app/page.jsx": {
+    "mtime": 1779136580.672208,
+    "ast_hash": "ce774ed9c243edcdbd0639edcc6ae838",
+    "semantic_hash": "ce774ed9c243edcdbd0639edcc6ae838"
+  },
+  "app/providers.jsx": {
+    "mtime": 1779203253.6802478,
+    "ast_hash": "00438584d58dac5fad8beccdbce22f46",
+    "semantic_hash": "00438584d58dac5fad8beccdbce22f46"
+  },
+  "app/scan/layout.jsx": {
+    "mtime": 1779210154.6764674,
+    "ast_hash": "808b6e3991d31d15a6fc119157b49b9d",
+    "semantic_hash": "808b6e3991d31d15a6fc119157b49b9d"
+  },
+  "app/scan/page.jsx": {
+    "mtime": 1780411113.925672,
+    "ast_hash": "c5c70950892af002db7b5c377f58f283",
+    "semantic_hash": "c5c70950892af002db7b5c377f58f283"
+  },
+  "app/shopify/page.jsx": {
+    "mtime": 1780931282.6733587,
+    "ast_hash": "e144c26896215b79c48c006700f58e63",
+    "semantic_hash": "e144c26896215b79c48c006700f58e63"
+  },
+  "components.json": {
+    "mtime": 1779200627.6059043,
+    "ast_hash": "3df656b40e00ef35fa24599562ee3163",
+    "semantic_hash": "3df656b40e00ef35fa24599562ee3163"
+  },
+  "components/AuthGate.jsx": {
+    "mtime": 1779220485.3806026,
+    "ast_hash": "f2a3e79f321a1e0a210b7d312bf4f1cb",
+    "semantic_hash": "f2a3e79f321a1e0a210b7d312bf4f1cb"
+  },
+  "components/DashboardShell.jsx": {
+    "mtime": 1780500842.7174451,
+    "ast_hash": "d4033475cc72c0a26b5e7b2e71dc36bc",
+    "semantic_hash": "d4033475cc72c0a26b5e7b2e71dc36bc"
+  },
+  "components/Fn6CreateModal.jsx": {
+    "mtime": 1779204928.8796654,
+    "ast_hash": "41ec30e860548ad497533b91be9f4e9f",
+    "semantic_hash": "41ec30e860548ad497533b91be9f4e9f"
+  },
+  "components/Fn6DetailModal.jsx": {
+    "mtime": 1780502603.6673512,
+    "ast_hash": "93d533f7e65847f1c139b2e5959d6ac3",
+    "semantic_hash": "93d533f7e65847f1c139b2e5959d6ac3"
+  },
+  "components/Fn6Filters.jsx": {
+    "mtime": 1779208795.510116,
+    "ast_hash": "77aa6ad7a2b767e49aeddc542704b5de",
+    "semantic_hash": "77aa6ad7a2b767e49aeddc542704b5de"
+  },
+  "components/Fn6ItemMetadataPanel.jsx": {
+    "mtime": 1781346166.6166468,
+    "ast_hash": "cbaab2e3d5e2a18b8bbe8e5d65ee4695",
+    "semantic_hash": ""
+  },
+  "components/shopify/AddSubVariantDialog.jsx": {
+    "mtime": 1781346162.3606298,
+    "ast_hash": "aeb13a789310452ccfe21b8ef6743f80",
+    "semantic_hash": ""
+  },
+  "components/shopify/BulkRepairVariantOptionsButton.jsx": {
+    "mtime": 1780669684.8682518,
+    "ast_hash": "37cf27ac414f263e4cabfb676a0e2ac3",
+    "semantic_hash": "37cf27ac414f263e4cabfb676a0e2ac3"
+  },
+  "components/shopify/CleanupDiscriminatorsButton.jsx": {
+    "mtime": 1780933388.309007,
+    "ast_hash": "afdcb6f8f76d9a213845efcd4420cb6b",
+    "semantic_hash": "afdcb6f8f76d9a213845efcd4420cb6b"
+  },
+  "components/shopify/ItemsListTab.jsx": {
+    "mtime": 1780410999.87486,
+    "ast_hash": "9e5fa581b194e4da873cd9fb229a1522",
+    "semantic_hash": "9e5fa581b194e4da873cd9fb229a1522"
+  },
+  "components/shopify/ItemsManagementTab.jsx": {
+    "mtime": 1780571800.6118627,
+    "ast_hash": "a670add6eb6cde0582e3e8a8c6260380",
+    "semantic_hash": "a670add6eb6cde0582e3e8a8c6260380"
+  },
+  "components/shopify/MediaSection.jsx": {
+    "mtime": 1780412997.127224,
+    "ast_hash": "5ff8f44b2c4d3a5d7f046c847103a1df",
+    "semantic_hash": "5ff8f44b2c4d3a5d7f046c847103a1df"
+  },
+  "components/shopify/ProductOrganization.jsx": {
+    "mtime": 1780675229.5895612,
+    "ast_hash": "7b89849f51998f0c2fbd29f6d22af520",
+    "semantic_hash": "7b89849f51998f0c2fbd29f6d22af520"
+  },
+  "components/shopify/ShopifyPublishForm.jsx": {
+    "mtime": 1781346164.3056302,
+    "ast_hash": "ad4f0b4ffb064f906cda7fe0a80b64d4",
+    "semantic_hash": ""
+  },
+  "components/shopify/ShopifyVariantsEditor.jsx": {
+    "mtime": 1781346166.6356306,
+    "ast_hash": "6eb2a17ac457d9ac19f3c74a4c5050ec",
+    "semantic_hash": ""
+  },
+  "components/shopify/VariantTypesEditor.jsx": {
+    "mtime": 1780925486.5295722,
+    "ast_hash": "387080534cc9a36e42db126c0d770fef",
+    "semantic_hash": "387080534cc9a36e42db126c0d770fef"
+  },
+  "components/shopify/VariantsPanel.jsx": {
+    "mtime": 1781346140.2057874,
+    "ast_hash": "48ae834bd770e688eab08840bbf06d7b",
+    "semantic_hash": ""
+  },
+  "components/ui/ImageUploader.jsx": {
+    "mtime": 1779139382.739208,
+    "ast_hash": "081483bcaa1d7082a1bf6e3af2481322",
+    "semantic_hash": "081483bcaa1d7082a1bf6e3af2481322"
+  },
+  "components/ui/MediaGallery.jsx": {
+    "mtime": 1779205151.340832,
+    "ast_hash": "7d996fb3c37666849997ef005704e54e",
+    "semantic_hash": "7d996fb3c37666849997ef005704e54e"
+  },
+  "components/ui/alert.jsx": {
+    "mtime": 1779139000.6399825,
+    "ast_hash": "1aeda6097da33443e578711da968dc62",
+    "semantic_hash": "1aeda6097da33443e578711da968dc62"
+  },
+  "components/ui/avatar.jsx": {
+    "mtime": 1779139777.3703701,
+    "ast_hash": "7e1c79756a7444d94fea390a3c5c4180",
+    "semantic_hash": "7e1c79756a7444d94fea390a3c5c4180"
+  },
+  "components/ui/badge.jsx": {
+    "mtime": 1779139719.2476714,
+    "ast_hash": "cdb04c62c1a3d20227db802bdb907755",
+    "semantic_hash": "cdb04c62c1a3d20227db802bdb907755"
+  },
+  "components/ui/button.jsx": {
+    "mtime": 1779201598.609157,
+    "ast_hash": "8c8c71af19fea5b31f0dda545dce285d",
+    "semantic_hash": "8c8c71af19fea5b31f0dda545dce285d"
+  },
+  "components/ui/calendar.jsx": {
+    "mtime": 1779201653.7918322,
+    "ast_hash": "c139e08e89c9a9d0d84eecff1030ff35",
+    "semantic_hash": "c139e08e89c9a9d0d84eecff1030ff35"
+  },
+  "components/ui/card.jsx": {
+    "mtime": 1779139357.311282,
+    "ast_hash": "e9e9ca1bfa14f19230b7054a8015a9d0",
+    "semantic_hash": "e9e9ca1bfa14f19230b7054a8015a9d0"
+  },
+  "components/ui/checkbox.jsx": {
+    "mtime": 1779136564.8093953,
+    "ast_hash": "13828572efc1aa1135cdf1fce47b0239",
+    "semantic_hash": "13828572efc1aa1135cdf1fce47b0239"
+  },
+  "components/ui/command.jsx": {
+    "mtime": 1779200862.28166,
+    "ast_hash": "70c53c8d7995bc05405ba949e80b6a1c",
+    "semantic_hash": "70c53c8d7995bc05405ba949e80b6a1c"
+  },
+  "components/ui/dialog.jsx": {
+    "mtime": 1779200861.9320812,
+    "ast_hash": "4843fe362bd65f1a33a9cb40050ec327",
+    "semantic_hash": "4843fe362bd65f1a33a9cb40050ec327"
+  },
+  "components/ui/dropdown-menu.jsx": {
+    "mtime": 1779136574.9582486,
+    "ast_hash": "c9273b268e1bf4693ff88bacb973d863",
+    "semantic_hash": "c9273b268e1bf4693ff88bacb973d863"
+  },
+  "components/ui/input-group.jsx": {
+    "mtime": 1779201660.7662153,
+    "ast_hash": "5e287fab1419188bffb032f493acbcbb",
+    "semantic_hash": "5e287fab1419188bffb032f493acbcbb"
+  },
+  "components/ui/input.jsx": {
+    "mtime": 1779201640.877534,
+    "ast_hash": "35011b345fa2bf06a926d0c69265b0f6",
+    "semantic_hash": "35011b345fa2bf06a926d0c69265b0f6"
+  },
+  "components/ui/label.jsx": {
+    "mtime": 1779138135.6633382,
+    "ast_hash": "55e023679d3c40e17034f71c416e9818",
+    "semantic_hash": "55e023679d3c40e17034f71c416e9818"
+  },
+  "components/ui/popover.jsx": {
+    "mtime": 1779136566.8266532,
+    "ast_hash": "a121c0827317a7b67f9f7d8c87cf02fe",
+    "semantic_hash": "a121c0827317a7b67f9f7d8c87cf02fe"
+  },
+  "components/ui/select.jsx": {
+    "mtime": 1779139502.1447048,
+    "ast_hash": "1e4e67f730cc874510611616f2315b1f",
+    "semantic_hash": "1e4e67f730cc874510611616f2315b1f"
+  },
+  "components/ui/separator.jsx": {
+    "mtime": 1779200717.726117,
+    "ast_hash": "0ba9102e491f5b652b6de217ec2e566a",
+    "semantic_hash": "0ba9102e491f5b652b6de217ec2e566a"
+  },
+  "components/ui/sheet.jsx": {
+    "mtime": 1779144246.2145636,
+    "ast_hash": "291c3570fea967334c352f8a62a6cf22",
+    "semantic_hash": "291c3570fea967334c352f8a62a6cf22"
+  },
+  "components/ui/skeleton.jsx": {
+    "mtime": 1779139732.2466202,
+    "ast_hash": "91fec6d8cf8dd582cdeec31b0af0e38a",
+    "semantic_hash": "91fec6d8cf8dd582cdeec31b0af0e38a"
+  },
+  "components/ui/sonner.jsx": {
+    "mtime": 1779200717.9109232,
+    "ast_hash": "b33a5a40d05957ca71aff9704823c1dd",
+    "semantic_hash": "b33a5a40d05957ca71aff9704823c1dd"
+  },
+  "components/ui/switch.jsx": {
+    "mtime": 1779145014.0875633,
+    "ast_hash": "601c60f1ed60faed9add6cc39214dba8",
+    "semantic_hash": "601c60f1ed60faed9add6cc39214dba8"
+  },
+  "components/ui/table.jsx": {
+    "mtime": 1779139705.0054722,
+    "ast_hash": "d0ba46fa1a147f46e920a6e8f585dc32",
+    "semantic_hash": "d0ba46fa1a147f46e920a6e8f585dc32"
+  },
+  "components/ui/tabs.jsx": {
+    "mtime": 1779201674.1050715,
+    "ast_hash": "25306bee8375e20610cf49a1d19ffe69",
+    "semantic_hash": "25306bee8375e20610cf49a1d19ffe69"
+  },
+  "components/ui/textarea.jsx": {
+    "mtime": 1779201649.6797545,
+    "ast_hash": "990b400e338c9544d245f20c8e8f934c",
+    "semantic_hash": "990b400e338c9544d245f20c8e8f934c"
+  },
+  "components/ui/tooltip.jsx": {
+    "mtime": 1779200680.7602985,
+    "ast_hash": "c0c4954887dc266b7c514a01cfbfced7",
+    "semantic_hash": "c0c4954887dc266b7c514a01cfbfced7"
+  },
+  "constants/fn6.js": {
+    "mtime": 1779142464.1786196,
+    "ast_hash": "0b809e9414a567af7cdd8f4c78c37fb4",
+    "semantic_hash": "0b809e9414a567af7cdd8f4c78c37fb4"
+  },
+  "context/AuthContext.jsx": {
+    "mtime": 1779220476.384326,
+    "ast_hash": "ce4c55bee47427a3425622a247a8ec44",
+    "semantic_hash": "ce4c55bee47427a3425622a247a8ec44"
+  },
+  "context/ProtectedRoute.jsx": {
+    "mtime": 1779136522.1360521,
+    "ast_hash": "c9b7ff896eae2cdd155599151e7cf24f",
+    "semantic_hash": "c9b7ff896eae2cdd155599151e7cf24f"
+  },
+  "hooks/useImageUpload.js": {
+    "mtime": 1779136529.133022,
+    "ast_hash": "a071129a8d272db4549b0438f3f5f2e9",
+    "semantic_hash": "a071129a8d272db4549b0438f3f5f2e9"
+  },
+  "jsconfig.json": {
+    "mtime": 1779136487.9884815,
+    "ast_hash": "1785e71c7510902b04f35784b434ec4b",
+    "semantic_hash": "1785e71c7510902b04f35784b434ec4b"
+  },
+  "lib/api-utils.js": {
+    "mtime": 1779136525.9373891,
+    "ast_hash": "1c285ca508576555f9a8c7953198c0e7",
+    "semantic_hash": "1c285ca508576555f9a8c7953198c0e7"
+  },
+  "lib/cleanupVariantDiscriminators.js": {
+    "mtime": 1780932866.5840924,
+    "ast_hash": "302793e1518b4ece1509d2f29a7a9b93",
+    "semantic_hash": "302793e1518b4ece1509d2f29a7a9b93"
+  },
+  "lib/featureFlags.js": {
+    "mtime": 1780934363.1811588,
+    "ast_hash": "d6f605b584d5bf0c64eacca16bbb29ef",
+    "semantic_hash": "d6f605b584d5bf0c64eacca16bbb29ef"
+  },
+  "lib/fn6ItemFields.js": {
+    "mtime": 1781346080.535558,
+    "ast_hash": "a4d2e51f80cdc68745ba105abb91486d",
+    "semantic_hash": ""
+  },
+  "lib/fn6Spec.js": {
+    "mtime": 1780317884.9783812,
+    "ast_hash": "1d14a15bab42cd1df6eeab31d7eafa5a",
+    "semantic_hash": "1d14a15bab42cd1df6eeab31d7eafa5a"
+  },
+  "lib/gwebWeightMetafield.js": {
+    "mtime": 1780507086.2902694,
+    "ast_hash": "fe957a9baedf190610c902d8e4fd5bb5",
+    "semantic_hash": "fe957a9baedf190610c902d8e4fd5bb5"
+  },
+  "lib/mediaUrl.js": {
+    "mtime": 1780496106.231731,
+    "ast_hash": "c4ac18f62ef714ef791f7badb64f8e19",
+    "semantic_hash": "c4ac18f62ef714ef791f7badb64f8e19"
+  },
+  "lib/publicEnv.js": {
+    "mtime": 1780496105.71573,
+    "ast_hash": "2b61e5b0f4da9b2e4883979ea96961e6",
+    "semantic_hash": "2b61e5b0f4da9b2e4883979ea96961e6"
+  },
+  "lib/refreshVariantPrice.js": {
+    "mtime": 1780507472.9419663,
+    "ast_hash": "e69fe7e3ef48e0752831bb482123a0db",
+    "semantic_hash": "e69fe7e3ef48e0752831bb482123a0db"
+  },
+  "lib/repairVariantOptions.js": {
+    "mtime": 1780932020.7382257,
+    "ast_hash": "18c6bf048b9e4e99d96320e49bc8b900",
+    "semantic_hash": "18c6bf048b9e4e99d96320e49bc8b900"
+  },
+  "lib/shopify.js": {
+    "mtime": 1780491437.9379084,
+    "ast_hash": "0c73d6659212ba54b3a182ae75fd7d01",
+    "semantic_hash": "0c73d6659212ba54b3a182ae75fd7d01"
+  },
+  "lib/shopifyAppProxy.js": {
+    "mtime": 1780504518.9460373,
+    "ast_hash": "a1d8974d01244c09d0112bfaf31db3a0",
+    "semantic_hash": "a1d8974d01244c09d0112bfaf31db3a0"
+  },
+  "lib/shopifyInventory.js": {
+    "mtime": 1780503644.9983857,
+    "ast_hash": "81ed41b0b22c558fc358f3c62e296b1d",
+    "semantic_hash": "81ed41b0b22c558fc358f3c62e296b1d"
+  },
+  "lib/shopifyItemWorkflow.js": {
+    "mtime": 1781346099.9470403,
+    "ast_hash": "98c132ebb6a624f74f803a1bc544569b",
+    "semantic_hash": ""
+  },
+  "lib/shopifyProductLookup.js": {
+    "mtime": 1780675234.5119114,
+    "ast_hash": "7310fd5af07df2cf49ea757999137189",
+    "semantic_hash": "7310fd5af07df2cf49ea757999137189"
+  },
+  "lib/shopifyVariantTypes.js": {
+    "mtime": 1780930995.7525468,
+    "ast_hash": "e98201ca7cbdf4be3717693ced9cfd54",
+    "semantic_hash": "e98201ca7cbdf4be3717693ced9cfd54"
+  },
+  "lib/utils.js": {
+    "mtime": 1779200640.0122473,
+    "ast_hash": "eff53006b93cfdef4aef148f202f1c3c",
+    "semantic_hash": "eff53006b93cfdef4aef148f202f1c3c"
+  },
+  "lib/variantGroupService.js": {
+    "mtime": 1780665126.2723367,
+    "ast_hash": "48c30043e786a0c0e935ff5b97636a41",
+    "semantic_hash": "48c30043e786a0c0e935ff5b97636a41"
+  },
+  "lib/variantModel.js": {
+    "mtime": 1780934476.0622873,
+    "ast_hash": "511d0f400b9650d77a3528576ffab64e",
+    "semantic_hash": "511d0f400b9650d77a3528576ffab64e"
+  },
+  "next.config.mjs": {
+    "mtime": 1779207490.9335117,
+    "ast_hash": "9d1268fd58df6676666772fd8f42cdd5",
+    "semantic_hash": "9d1268fd58df6676666772fd8f42cdd5"
+  },
+  "package.json": {
+    "mtime": 1779203235.5159743,
+    "ast_hash": "795f735111c04264e626b4cad9f2b802",
+    "semantic_hash": "795f735111c04264e626b4cad9f2b802"
+  },
+  "postcss.config.mjs": {
+    "mtime": 1779136481.8930123,
+    "ast_hash": "c56b5f3c12f777a86e2513f45daab56a",
+    "semantic_hash": "c56b5f3c12f777a86e2513f45daab56a"
+  },
+  "scripts/variantModel-size-share-check.mjs": {
+    "mtime": 1780934511.2824762,
+    "ast_hash": "487e9a33e3438d0662bffc377496cd27",
+    "semantic_hash": "487e9a33e3438d0662bffc377496cd27"
+  },
+  "skills-lock.json": {
+    "mtime": 1779141982.4335685,
+    "ast_hash": "db6f3839d0d523ff906fa69d0b7bff49",
+    "semantic_hash": "db6f3839d0d523ff906fa69d0b7bff49"
+  },
+  "tailwind.config.mjs": {
+    "mtime": 1779201204.9396822,
+    "ast_hash": "ac2c4725ddae3cf673ce6f7cce8d3ba8",
+    "semantic_hash": "ac2c4725ddae3cf673ce6f7cce8d3ba8"
+  },
+  "vercel.json": {
+    "mtime": 1780496104.37858,
+    "ast_hash": "b52f4110d06ce9b8be75f01a7f98f631",
+    "semantic_hash": "b52f4110d06ce9b8be75f01a7f98f631"
+  },
+  ".agents/skills/impeccable/SKILL.md": {
+    "mtime": 1779141981.251756,
+    "ast_hash": "259cfd39515b1b390c02c811de7491f9",
+    "semantic_hash": "259cfd39515b1b390c02c811de7491f9"
+  },
+  ".agents/skills/impeccable/agents/impeccable-asset-producer.md": {
+    "mtime": 1779141981.2527554,
+    "ast_hash": "892906b3db9443e58267e77d4038a0fb",
+    "semantic_hash": "892906b3db9443e58267e77d4038a0fb"
+  },
+  ".agents/skills/impeccable/reference/adapt.md": {
+    "mtime": 1779141981.2527554,
+    "ast_hash": "27c29f5a41c6104b89a5ac22d6476853",
+    "semantic_hash": "27c29f5a41c6104b89a5ac22d6476853"
+  },
+  ".agents/skills/impeccable/reference/animate.md": {
+    "mtime": 1779141981.2537553,
+    "ast_hash": "b62d806becc589f6e322568dbf1643ec",
+    "semantic_hash": "b62d806becc589f6e322568dbf1643ec"
+  },
+  ".agents/skills/impeccable/reference/audit.md": {
+    "mtime": 1779141981.2537553,
+    "ast_hash": "bfa673574701e2910ca2b3473aa1c6ad",
+    "semantic_hash": "bfa673574701e2910ca2b3473aa1c6ad"
+  },
+  ".agents/skills/impeccable/reference/bolder.md": {
+    "mtime": 1779141981.2547557,
+    "ast_hash": "633d0f931184a8aac040a37ba0c2c0f6",
+    "semantic_hash": "633d0f931184a8aac040a37ba0c2c0f6"
+  },
+  ".agents/skills/impeccable/reference/brand.md": {
+    "mtime": 1779141981.2547557,
+    "ast_hash": "74e97fbbaad8eba976b3fd29943f4424",
+    "semantic_hash": "74e97fbbaad8eba976b3fd29943f4424"
+  },
+  ".agents/skills/impeccable/reference/clarify.md": {
+    "mtime": 1779141981.2557564,
+    "ast_hash": "9dc6a767d5bbd31e9117d36d06e1261e",
+    "semantic_hash": "9dc6a767d5bbd31e9117d36d06e1261e"
+  },
+  ".agents/skills/impeccable/reference/codex.md": {
+    "mtime": 1779141981.2557564,
+    "ast_hash": "c044e7cf44c58dea75e9c6a3413e8d70",
+    "semantic_hash": "c044e7cf44c58dea75e9c6a3413e8d70"
+  },
+  ".agents/skills/impeccable/reference/cognitive-load.md": {
+    "mtime": 1779141981.2567556,
+    "ast_hash": "464d1b1b3566c74909fadcd2c13bc544",
+    "semantic_hash": "464d1b1b3566c74909fadcd2c13bc544"
+  },
+  ".agents/skills/impeccable/reference/color-and-contrast.md": {
+    "mtime": 1779141981.2567556,
+    "ast_hash": "c51e5bca12b63f220ad15454852a8594",
+    "semantic_hash": "c51e5bca12b63f220ad15454852a8594"
+  },
+  ".agents/skills/impeccable/reference/colorize.md": {
+    "mtime": 1779141981.2577558,
+    "ast_hash": "c9702b3f0c17fa6846747d369ad82699",
+    "semantic_hash": "c9702b3f0c17fa6846747d369ad82699"
+  },
+  ".agents/skills/impeccable/reference/craft.md": {
+    "mtime": 1779141981.2577558,
+    "ast_hash": "59729d8216df64493363d604df736563",
+    "semantic_hash": "59729d8216df64493363d604df736563"
+  },
+  ".agents/skills/impeccable/reference/critique.md": {
+    "mtime": 1779141981.258756,
+    "ast_hash": "ef227aba077522e2eba18088f8bbb91a",
+    "semantic_hash": "ef227aba077522e2eba18088f8bbb91a"
+  },
+  ".agents/skills/impeccable/reference/delight.md": {
+    "mtime": 1779141981.258756,
+    "ast_hash": "c302379f6c88c20d4886636aaf5e6dde",
+    "semantic_hash": "c302379f6c88c20d4886636aaf5e6dde"
+  },
+  ".agents/skills/impeccable/reference/distill.md": {
+    "mtime": 1779141981.258756,
+    "ast_hash": "15b690d4b8f6bf9c8a0d5208f1f6f1fb",
+    "semantic_hash": "15b690d4b8f6bf9c8a0d5208f1f6f1fb"
+  },
+  ".agents/skills/impeccable/reference/document.md": {
+    "mtime": 1779141981.2597556,
+    "ast_hash": "8faba1b504418148860d159448194fc9",
+    "semantic_hash": "8faba1b504418148860d159448194fc9"
+  },
+  ".agents/skills/impeccable/reference/extract.md": {
+    "mtime": 1779141981.2597556,
+    "ast_hash": "bcbed7005945d9de131f69985cbc5e6f",
+    "semantic_hash": "bcbed7005945d9de131f69985cbc5e6f"
+  },
+  ".agents/skills/impeccable/reference/harden.md": {
+    "mtime": 1779141981.260756,
+    "ast_hash": "b8c6ce7f60733c8dab39b12c7957750b",
+    "semantic_hash": "b8c6ce7f60733c8dab39b12c7957750b"
+  },
+  ".agents/skills/impeccable/reference/heuristics-scoring.md": {
+    "mtime": 1779141981.260756,
+    "ast_hash": "f1606921268571e14591682483b595ef",
+    "semantic_hash": "f1606921268571e14591682483b595ef"
+  },
+  ".agents/skills/impeccable/reference/interaction-design.md": {
+    "mtime": 1779141981.261756,
+    "ast_hash": "ea39b98601f17b5a87f7de799b953000",
+    "semantic_hash": "ea39b98601f17b5a87f7de799b953000"
+  },
+  ".agents/skills/impeccable/reference/layout.md": {
+    "mtime": 1779141981.261756,
+    "ast_hash": "400e8cbbc0688d27d288f80c5b52314a",
+    "semantic_hash": "400e8cbbc0688d27d288f80c5b52314a"
+  },
+  ".agents/skills/impeccable/reference/live.md": {
+    "mtime": 1779141981.2627554,
+    "ast_hash": "443d531ec715bb64e48b660671e3ad78",
+    "semantic_hash": "443d531ec715bb64e48b660671e3ad78"
+  },
+  ".agents/skills/impeccable/reference/motion-design.md": {
+    "mtime": 1779141981.2627554,
+    "ast_hash": "95de769ab6e30a4214a969ebb25ebe89",
+    "semantic_hash": "95de769ab6e30a4214a969ebb25ebe89"
+  },
+  ".agents/skills/impeccable/reference/onboard.md": {
+    "mtime": 1779141981.2637553,
+    "ast_hash": "8def483b066f2c7fb906c313e3653c10",
+    "semantic_hash": "8def483b066f2c7fb906c313e3653c10"
+  },
+  ".agents/skills/impeccable/reference/optimize.md": {
+    "mtime": 1779141981.2637553,
+    "ast_hash": "613f211310d45abd984d0bd610abc1fb",
+    "semantic_hash": "613f211310d45abd984d0bd610abc1fb"
+  },
+  ".agents/skills/impeccable/reference/overdrive.md": {
+    "mtime": 1779141981.2647567,
+    "ast_hash": "891190b0148e5156aa007ca5917a0bb4",
+    "semantic_hash": "891190b0148e5156aa007ca5917a0bb4"
+  },
+  ".agents/skills/impeccable/reference/personas.md": {
+    "mtime": 1779141981.2647567,
+    "ast_hash": "3022b396ec3f0977be627875594bfa81",
+    "semantic_hash": "3022b396ec3f0977be627875594bfa81"
+  },
+  ".agents/skills/impeccable/reference/polish.md": {
+    "mtime": 1779141981.2647567,
+    "ast_hash": "5ba31783c05352cbda780abd9e12d969",
+    "semantic_hash": "5ba31783c05352cbda780abd9e12d969"
+  },
+  ".agents/skills/impeccable/reference/product.md": {
+    "mtime": 1779141981.265755,
+    "ast_hash": "c073e67bbcec51f31af4ba132730aca9",
+    "semantic_hash": "c073e67bbcec51f31af4ba132730aca9"
+  },
+  ".agents/skills/impeccable/reference/quieter.md": {
+    "mtime": 1779141981.265755,
+    "ast_hash": "9b34ed291f042b1dad31f66f487c4137",
+    "semantic_hash": "9b34ed291f042b1dad31f66f487c4137"
+  },
+  ".agents/skills/impeccable/reference/responsive-design.md": {
+    "mtime": 1779141981.2667549,
+    "ast_hash": "3a0e2834961edfe9d44cef19ffc84737",
+    "semantic_hash": "3a0e2834961edfe9d44cef19ffc84737"
+  },
+  ".agents/skills/impeccable/reference/shape.md": {
+    "mtime": 1779141981.2667549,
+    "ast_hash": "aab83193a1a58010b1de9f67074b5915",
+    "semantic_hash": "aab83193a1a58010b1de9f67074b5915"
+  },
+  ".agents/skills/impeccable/reference/spatial-design.md": {
+    "mtime": 1779141981.2677557,
+    "ast_hash": "28fd3d7f36c9ad72fdc5c3a90c7f5505",
+    "semantic_hash": "28fd3d7f36c9ad72fdc5c3a90c7f5505"
+  },
+  ".agents/skills/impeccable/reference/teach.md": {
+    "mtime": 1779141981.2677557,
+    "ast_hash": "ab273dd5cd15e248ebdf7f52671e3f81",
+    "semantic_hash": "ab273dd5cd15e248ebdf7f52671e3f81"
+  },
+  ".agents/skills/impeccable/reference/typeset.md": {
+    "mtime": 1779141981.2677557,
+    "ast_hash": "3b4d239361890c9db44b5484d002f2d2",
+    "semantic_hash": "3b4d239361890c9db44b5484d002f2d2"
+  },
+  ".agents/skills/impeccable/reference/typography.md": {
+    "mtime": 1779141981.2687552,
+    "ast_hash": "841fa5dc3d8cf998ecb63b211b766c7c",
+    "semantic_hash": "841fa5dc3d8cf998ecb63b211b766c7c"
+  },
+  ".agents/skills/impeccable/reference/ux-writing.md": {
+    "mtime": 1779141981.2687552,
+    "ast_hash": "74e4aac960c114a7b8761210f80a8cc5",
+    "semantic_hash": "74e4aac960c114a7b8761210f80a8cc5"
+  },
+  "shopify-page.html": {
+    "mtime": 1779207309.318829,
+    "ast_hash": "c4f9601d1fd4735f617434218cf31f47",
+    "semantic_hash": "c4f9601d1fd4735f617434218cf31f47"
+  },
+  "public/favicon.svg": {
+    "mtime": 1779136488.814236,
+    "ast_hash": "3b8fa049ca0d6521274a0167a4535d0a",
+    "semantic_hash": "3b8fa049ca0d6521274a0167a4535d0a"
+  },
+  ".vercel/project.json": {
+    "mtime": 1779207281.7854803,
+    "ast_hash": "d25c522e44b1e183cb58c43d90447aee",
+    "semantic_hash": ""
+  },
+  "app/api/shopify/products/[id]/code-chains/route.js": {
+    "mtime": 1781346198.965212,
+    "ast_hash": "ffba9cdd51085beaf80757c5705cfeaa",
+    "semantic_hash": ""
+  },
+  "app/api/shopify/webhooks/orders-paid/route.js": {
+    "mtime": 1781346198.3913267,
+    "ast_hash": "d7528d98fa41fb10b0c5e3383fb73740",
+    "semantic_hash": ""
+  },
+  "components/shopify/CodeChainsEditor.jsx": {
+    "mtime": 1781346130.9381835,
+    "ast_hash": "3ff2a6681e57fb243f3831ab4a5bde75",
+    "semantic_hash": ""
+  },
+  "lib/codeChainService.js": {
+    "mtime": 1781346198.010332,
+    "ast_hash": "6de0f56db9a0b389db3911661cc773e3",
+    "semantic_hash": ""
+  },
+  "lib/fn6Server.js": {
+    "mtime": 1781346045.7327256,
+    "ast_hash": "73e9a05cfa11a1f2b075495a33648894",
+    "semantic_hash": ""
+  },
+  ".vercel/README.txt": {
+    "mtime": 1779207281.7864857,
+    "ast_hash": "2b13c79d37d6ed82a3255b83b6815034",
+    "semantic_hash": ""
+  }
+}

@@ -17,6 +17,8 @@ import {
   ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Settings,
 } from 'lucide-react';
 
+import { formatFn6Currency } from '../../lib/fn6ItemFields';
+
 const DASH = '—';
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
 const COLUMNS = [
@@ -26,11 +28,6 @@ const COLUMNS = [
   { title: 'Qty', key: 'qt', sortable: true },
   { title: 'Price', key: 'price', sortable: true },
 ];
-
-function formatCurrency(v) {
-  if (v == null || Number.isNaN(Number(v))) return DASH;
-  return new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(v);
-}
 
 function formatNumber(v) {
   if (v == null || Number.isNaN(Number(v))) return DASH;
@@ -75,12 +72,12 @@ function ScanResult({ item }) {
       </div>
 
       <div className="scan-fields-grid">
-        <Field label="Gold Price / g" value={item.gold_price != null ? formatCurrency(item.gold_price) : DASH} />
+        <Field label="Gold Price / g" value={item.gold_price != null ? formatFn6Currency(item.gold_price) : DASH} />
         <Field label="USD Rate" value={item.dollar != null ? `$1 = EGP ${Number(item.dollar).toFixed(2)}` : DASH} />
         <Field label="Total Weight" value={item.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH} />
-        <Field label="Total Price" value={item.price != null ? formatCurrency(item.price) : DASH} />
+        <Field label="Total Price" value={item.price != null ? formatFn6Currency(item.price) : DASH} />
         <Field label="Quantity" value={item.qt} />
-        {item.prc > 0 && <Field label="Extra Price (EGP)" value={formatCurrency(item.prc)} />}
+        {item.prc > 0 && <Field label="Extra Price (EGP)" value={formatFn6Currency(item.prc)} />}
         {item.prcus > 0 && <Field label="Extra Price (USD)" value={`$${Number(item.prcus).toFixed(2)}`} />}
       </div>
 
@@ -315,7 +312,7 @@ export default function ScanPage() {
                       </TableCell>
                       <TableCell className="text-sm font-mono">{stockItem.go_cr != null ? `${Number(stockItem.go_cr).toFixed(3)}g` : DASH}</TableCell>
                       <TableCell className="text-sm">{stockItem.qt ?? DASH}</TableCell>
-                      <TableCell className="text-sm font-mono font-medium">{stockItem.price != null ? formatCurrency(stockItem.price) : DASH}</TableCell>
+                      <TableCell className="text-sm font-mono font-medium">{stockItem.price != null ? formatFn6Currency(stockItem.price) : DASH}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

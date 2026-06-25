@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getPublicApiBaseUrl } from '../../../../lib/publicEnv';
-import { applyFn6Price18k } from '../../../../lib/fn6Price18k';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,46 +22,36 @@ export async function OPTIONS() {
 /**
  * GET — returns the live 18K gold price per gram and USD→EGP rate.
  *
- * Fetches a reference SKU from Gweb by-mco (any kinggold item works — all
- * items return the same gold_price and dollar at a given moment, since they
- * come from gp.objects.last() and Fc2 respectively). The 18K price is
- * derived as gold_21 × 6/7.
+ * Fetches the gold-rate endpoint from Gweb which provides pr18 (18K gold
+ * price per gram) and dollar (USD→EGP rate) directly — no SKU required
+ * and no 21K↔18K round-trip.
  *
  * Cached 30s. Polled by the theme every 60s for instant updates.
  */
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const refSku = searchParams.get('sku')?.trim();
+export async function GET() {
   const base = getPublicApiBaseUrl();
-
-  if (!refSku) {
-    return json({ error: 'sku query param required (reference SKU)' }, 400);
-  }
 
   try {
     const res = await fetch(
-      `${base}/Sup/api/fn6/by-mco/${encodeURIComponent(refSku)}/`,
+      `${base}/Sup/api/gold-rate/`,
       { cache: 'no-store' },
     );
     if (!res.ok) {
-      return json({ error: `Gweb fetch failed: ${res.status}` }, 502);
+      return json({ error: `Gold-rate fetch failed: ${res.status}` }, 502);
     }
-    const item = await res.json();
-    applyFn6Price18k(item);
+    const data = await res.json();
 
-    const gold21 = Number(item?.gold_price) * (7 / 6); // reverse 18K → 21K gram price
-    const usdRate = Number(item?.dollar) || 1;
-    const gold18 = gold21 * (6 / 7);
+    const pr18 = Number(data.pr18);
+    const usdRate = Number(data.dollar) || 1;
 
-    if (!Number.isFinite(gold21) || gold21 <= 0) {
+    if (!Number.isFinite(pr18) || pr18 <= 0) {
       return json({ error: 'Invalid gold price from Gweb' }, 502);
     }
 
     return json({
-      gold_21: Math.round(gold21 * 100) / 100,
-      gold_18: Math.round(gold18 * 100) / 100,
+      pr18: Math.round(pr18 * 100) / 100,
       usd_rate: usdRate,
-      updated_at: item?.updated_at || new Date().toISOString(),
+      updated_at: data.updated_at || new Date().toISOString(),
     });
   } catch (err) {
     return json({ error: err.message || 'Internal error' }, 500);

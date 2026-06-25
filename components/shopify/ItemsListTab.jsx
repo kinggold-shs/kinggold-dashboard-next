@@ -106,11 +106,10 @@ export default function ItemsListTab({ onManageSku }) {
           {filtered.map((product) => {
             const image = product.images?.[0]?.src;
             const sku = product.variants?.[0]?.sku;
-            const storedPrice = product.variants?.[0]?.price;
             const status = product.status || 'draft';
             const liveEntry = sku ? livePrices[String(sku)] : null;
             const livePrice = liveEntry?.found ? liveEntry.price : null;
-            const displayPrice = livePrice ?? storedPrice;
+            const displayPrice = livePrice;
             const isLive = livePrice != null;
             return (
               <Card key={product.id} className="overflow-hidden">

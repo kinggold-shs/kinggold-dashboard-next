@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPublicApiBaseUrl } from '../../../../lib/publicEnv';
-import { applyFn6Price18k, roundedFn6Price18k } from '../../../../lib/fn6Price18k';
+import { computeFn6Price, roundToNearest5 } from '../../../../lib/fn6Price18k';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,8 +26,9 @@ const PER_SKU_TIMEOUT_MS = 2500;
 /**
  * GET — batch 18K price lookup for the theme (collection pages, etc).
  *
- * ?skus=A,B,C (max 50) → for each, fetches by-mco from Gweb, applies 18K
- * transform, returns { [sku]: { price, weight, gold_18, prc, prcus } }.
+ * ?skus=A,B,C (max 50) → fetches the live gold rate once, then fetches each
+ * SKU by-mco from Gweb, computes the 18K price via the shared formula, and
+ * returns { [sku]: { price, weight, gold_18, prc, prcus } }.
  * Used as a fallback when variant metafields are missing on the storefront.
  */
 export async function GET(request) {
@@ -43,6 +44,21 @@ export async function GET(request) {
   }
 
   const base = getPublicApiBaseUrl();
+
+  // Fetch gold rate once
+  let pr18 = null;
+  let dollar = null;
+  try {
+    const rateRes = await fetch(`${base}/Sup/api/gold-rate/`, { cache: 'no-store' });
+    if (rateRes.ok) {
+      const rateData = await rateRes.json();
+      pr18 = Number(rateData.pr18);
+      dollar = Number(rateData.dollar) || 1;
+    }
+  } catch {
+    // continue — each item will have null price
+  }
+
   const results = {};
 
   await Promise.all(skus.map(async (sku) => {
@@ -63,12 +79,19 @@ export async function GET(request) {
         return;
       }
       const item = await res.json();
-      applyFn6Price18k(item);
+      const raw = computeFn6Price({
+        pr18,
+        usdRate: dollar,
+        weight: Number(item.go_cr),
+        prc: Number(item.prc),
+        prcus: Number(item.prcus),
+      });
+      const price = roundToNearest5(raw);
       results[sku] = {
         found: true,
-        price: roundedFn6Price18k(item),
+        price: price != null ? String(price) : null,
         weight: item?.go_cr != null ? `${Number(item.go_cr).toFixed(2)}g` : null,
-        gold_18: item?.gold_price != null ? Math.round(Number(item.gold_price) * 100) / 100 : null,
+        gold_18: pr18 != null ? Math.round(pr18 * 100) / 100 : null,
         prc: item?.prc != null && item.prc !== '' ? Number(item.prc) : 0,
         prcus: item?.prcus != null && item.prcus !== '' ? Number(item.prcus) : 0,
       };

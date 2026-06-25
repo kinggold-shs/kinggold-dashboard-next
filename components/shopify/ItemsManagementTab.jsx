@@ -11,21 +11,9 @@ import MediaSection from './MediaSection';
 import ShopifyPublishForm from './ShopifyPublishForm';
 import VariantsPanel from './VariantsPanel';
 
+import { formatFn6Currency } from '../../lib/fn6ItemFields';
+
 const DASH = '—';
-
-function roundToNearest5(v) {
-  return Math.round(Number(v) / 5) * 5;
-}
-
-function formatCurrency(v) {
-  if (v == null || Number.isNaN(Number(v))) return DASH;
-  return new Intl.NumberFormat('en-EG', {
-    style: 'currency',
-    currency: 'EGP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(roundToNearest5(v));
-}
 
 export default function ItemsManagementTab({ initialSku }) {
   const [lookup, setLookup] = useState(initialSku || '');
@@ -122,8 +110,8 @@ export default function ItemsManagementTab({ initialSku }) {
               <div><span className="text-muted-foreground">Code:</span> <code>{item.mco}</code></div>
               <div><span className="text-muted-foreground">Weight:</span> {item.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH}</div>
               <div><span className="text-muted-foreground">Quantity:</span> {item.qt ?? DASH}</div>
-              <div><span className="text-muted-foreground">Total Price:</span> {formatCurrency(item.price)}</div>
-              <div><span className="text-muted-foreground">Gold Price/g:</span> {formatCurrency(item.gold_price)}</div>
+              <div><span className="text-muted-foreground">Total Price:</span> {formatFn6Currency(item.price)}</div>
+              <div><span className="text-muted-foreground">Gold Price/g:</span> {formatFn6Currency(item.gold_price)}</div>
             </CardContent>
           </Card>
 

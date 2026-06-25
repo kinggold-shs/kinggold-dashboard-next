@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPublicApiBaseUrl } from '../lib/publicEnv';
+import { computeFn6Price, roundToNearest5 } from '../lib/fn6Price18k';
 
 export interface GoldRate {
   pr18: number;
@@ -40,20 +41,12 @@ export function computeLivePrice(
   prcus: number | string | null,
 ): number | null {
   if (!goldRate || !goldRate.pr18 || goldRate.pr18 <= 0) return null;
-  const w = Number(weight);
-  if (!Number.isFinite(w) || w <= 0) return null;
-  const p = Number(prc) || 0;
-  const pu = Number(prcus) || 0;
-  const rate = goldRate.dollar > 0 ? goldRate.dollar : 1;
-  let total;
-  if (pu > 0) {
-    const totus = (pu + goldRate.pr18 / rate) * w;
-    total = totus * rate;
-  } else if (p > 0) {
-    total = (p + goldRate.pr18) * w;
-  } else {
-    total = goldRate.pr18 * w;
-  }
-  const rounded = Math.sign(total) * Math.floor(Math.abs(total) + 0.5);
-  return Math.round(rounded / 5) * 5;
+  const raw = computeFn6Price({
+    pr18: goldRate.pr18,
+    usdRate: goldRate.dollar,
+    weight: Number(weight),
+    prc: Number(prc),
+    prcus: Number(prcus),
+  });
+  return roundToNearest5(raw);
 }

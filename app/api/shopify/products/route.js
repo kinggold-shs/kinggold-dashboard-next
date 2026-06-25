@@ -26,8 +26,17 @@ export async function GET(request) {
     const nextPageInfo = linkHeader.match(/page_info=([^&>]+)[^>]*>;\s*rel="next"/)?.[1] || null;
     const prevPageInfo = linkHeader.match(/page_info=([^&>]+)[^>]*>;\s*rel="previous"/)?.[1] || null;
 
+    const products = data.products.map((product) => {
+      if (!product.variants) return product;
+      const mapped = { ...product, variants: product.variants.map((v) => {
+        const { price, ...rest } = v;
+        return rest;
+      }) };
+      return mapped;
+    });
+
     return NextResponse.json({
-      products: data.products,
+      products,
       pagination: { nextPageInfo, prevPageInfo },
     });
   } catch (err) {
