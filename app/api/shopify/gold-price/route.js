@@ -20,11 +20,10 @@ export async function OPTIONS() {
 }
 
 /**
- * GET — returns the live 18K gold price per gram and USD→EGP rate.
+ * GET — returns the live 18K + 21K gold price per gram and USD→EGP rate.
  *
- * Fetches the gold-rate endpoint from Gweb which provides pr18 (18K gold
- * price per gram) and dollar (USD→EGP rate) directly — no SKU required
- * and no 21K↔18K round-trip.
+ * Fetches the gold-rate endpoint from Gweb which provides pr18, pr21,
+ * and dollar (USD→EGP rate) directly.
  *
  * Cached 30s. Polled by the theme every 60s for instant updates.
  */
@@ -42,14 +41,19 @@ export async function GET() {
     const data = await res.json();
 
     const pr18 = Number(data.pr18);
+    const pr21 = Number(data.pr21);
     const usdRate = Number(data.dollar) || 1;
 
     if (!Number.isFinite(pr18) || pr18 <= 0) {
-      return json({ error: 'Invalid gold price from Gweb' }, 502);
+      return json({ error: 'Invalid 18K gold price from Gweb' }, 502);
+    }
+    if (!Number.isFinite(pr21) || pr21 <= 0) {
+      return json({ error: 'Invalid 21K gold price from Gweb' }, 502);
     }
 
     return json({
       pr18: Math.round(pr18 * 100) / 100,
+      pr21: Math.round(pr21 * 100) / 100,
       usd_rate: usdRate,
       updated_at: data.updated_at || new Date().toISOString(),
     });

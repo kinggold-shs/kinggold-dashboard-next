@@ -9,6 +9,7 @@ import {
   Layers,
   ScanBarcode,
   ShoppingBag,
+  History,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -24,6 +25,7 @@ import {
 const NAV = [
   { label: 'Dashboard', path: '/scan', icon: ScanBarcode },
   { label: 'Shopify', path: '/shopify', icon: ShoppingBag },
+  { label: 'History', path: '/history', icon: History },
 ];
 
 const SIDEBAR_STORAGE_KEY = 'kinggold-sidebar-collapsed';
