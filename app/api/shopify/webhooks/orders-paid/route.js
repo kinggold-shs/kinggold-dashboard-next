@@ -81,6 +81,8 @@ async function persistPurchaseSnapshot(order, request, domain, token) {
 /** POST — Shopify orders/paid webhook: advance code chains on purchase */
 export async function POST(request) {
   try {
+    let snapshotError = null;
+    let snapshotSkipped = false;
     const rawBody = await request.text();
     const hmac = request.headers.get('x-shopify-hmac-sha256');
     const isTest = request.headers.get('x-shopify-test') === 'true';
@@ -103,10 +105,15 @@ export async function POST(request) {
     try {
       historySnapshot = await persistPurchaseSnapshot(order, request, domain, token);
     } catch (err) {
-      historySnapshot = { inserted: false, error: err.message };
+      snapshotError = err?.message ?? 'Unknown snapshot error';
+      historySnapshot = { inserted: false, error: snapshotError };
     }
 
     if (!lineItems.length) {
+      snapshotSkipped = true;
+      try {
+        await recordWebhookReceipt({ status: 'skipped', http: 200, test: isTest, topic, orderName: order?.name ?? null, orderId: String(order?.id ?? ''), message: 'no line items (test or empty order)' });
+      } catch (_) {}
       return NextResponse.json({ processed: 0, history: historySnapshot });
     }
 
@@ -146,10 +153,10 @@ export async function POST(request) {
 
     try {
       await recordWebhookReceipt({
-        status: 'verified', http: 200, test: isTest, topic,
+        status: snapshotError ? 'error' : 'verified', http: 200, test: isTest, topic,
         orderName: order?.name ?? null,
         orderId: String(order?.id ?? ''),
-        message: null,
+        message: snapshotError ?? null,
       });
     } catch (_) {}
 

@@ -158,7 +158,7 @@ export default function HistoryPage() {
     .filter(r => typeFilter === 'all' || (typeFilter === 'test' ? r.test : !r.test));
 
   const last = filteredReceipts[0] ?? allReceipts[0];
-  const statusColor = { verified: 'bg-green-500', rejected: 'bg-red-500', error: 'bg-amber-500' };
+  const statusColor = { verified: 'bg-green-500', rejected: 'bg-red-500', error: 'bg-amber-500', skipped: 'bg-gray-400' };
 
   const handleSearch = () => {
     setPage(1);
@@ -227,7 +227,7 @@ export default function HistoryPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 mb-3">
-            {['all','verified','rejected','error'].map(s => (
+            {['all','verified','rejected','error','skipped'].map(s => (
               <button key={s}
                 onClick={() => setStatusFilter(s)}
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
