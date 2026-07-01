@@ -142,6 +142,24 @@ export default function HistoryPage() {
   const count = historyQuery.data?.count || 0;
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
+  const { data: webhookData } = useQuery({
+    queryKey: ['webhook-receipts'],
+    queryFn: () => fetch('/api/webhooks/receipts').then(r => r.json()),
+    refetchInterval: 10000,
+    staleTime: 5000,
+  });
+  const allReceipts = webhookData?.receipts ?? [];
+
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+
+  const filteredReceipts = allReceipts
+    .filter(r => statusFilter === 'all' || r.status === statusFilter)
+    .filter(r => typeFilter === 'all' || (typeFilter === 'test' ? r.test : !r.test));
+
+  const last = filteredReceipts[0] ?? allReceipts[0];
+  const statusColor = { verified: 'bg-green-500', rejected: 'bg-red-500', error: 'bg-amber-500' };
+
   const handleSearch = () => {
     setPage(1);
     setSearchParam(search.trim());
@@ -197,6 +215,55 @@ export default function HistoryPage() {
             <Button onClick={handleSearch}>Search</Button>
             <Button variant="ghost" onClick={handleClear}>Clear</Button>
           </div>
+        </div>
+
+        {/* Webhook status widget */}
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">Webhook Receipts</h3>
+            <span className="text-xs text-muted-foreground">
+              {last ? `Last: ${new Date(last.at).toLocaleString()}` : 'No webhooks received yet'}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            {['all','verified','rejected','error'].map(s => (
+              <button key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+            <span className="mx-1 text-muted-foreground/30">|</span>
+            {['all','real','test'].map(t => (
+              <button key={t}
+                onClick={() => setTypeFilter(t)}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${typeFilter === t ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {filteredReceipts.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">
+              {allReceipts.length === 0
+                ? 'No webhooks received yet — trigger Send test in Shopify Admin.'
+                : 'No receipts match current filters.'}
+            </p>
+          ) : (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {filteredReceipts.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${statusColor[r.status] ?? 'bg-gray-400'}`} />
+                  <span className="font-medium w-16 capitalize">{r.status}</span>
+                  <span className="text-muted-foreground">{new Date(r.at).toLocaleTimeString()}</span>
+                  {r.test && <span className="px-1.5 rounded bg-muted text-muted-foreground text-[10px] font-medium">TEST</span>}
+                  {r.orderName && <span>{r.orderName}</span>}
+                  {r.message && <span className="text-destructive truncate max-w-xs">{r.message}</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {historyQuery.isLoading ? (

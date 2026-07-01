@@ -8,6 +8,7 @@ import {
 } from '../../../../../lib/codeChainService';
 import { fetchGoldRateSnapshot } from '../../../../../lib/goldRates';
 import { upsertOrderSnapshotMetafields } from '../../../../../lib/shopifyOrderHistory';
+import { recordWebhookReceipt } from '../../../../../lib/webhookReceipts.js';
 
 function verifyShopifyWebhook(rawBody, hmacHeader) {
   const secret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_CLIENT_SECRET;
@@ -82,8 +83,15 @@ export async function POST(request) {
   try {
     const rawBody = await request.text();
     const hmac = request.headers.get('x-shopify-hmac-sha256');
+    const isTest = request.headers.get('x-shopify-test') === 'true';
+    const topic = request.headers.get('x-shopify-topic') ?? 'orders/paid';
 
     if (!verifyShopifyWebhook(rawBody, hmac)) {
+      if (hmac) {
+        try {
+          await recordWebhookReceipt({ status: 'rejected', http: 401, test: isTest, topic, orderName: null, orderId: null, message: 'HMAC verification failed' });
+        } catch (_) {}
+      }
       return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
     }
 
@@ -136,8 +144,20 @@ export async function POST(request) {
       await markOrderLineProcessed(domain, token, metafieldId, lineIds);
     }
 
+    try {
+      await recordWebhookReceipt({
+        status: 'verified', http: 200, test: isTest, topic,
+        orderName: order?.name ?? null,
+        orderId: String(order?.id ?? ''),
+        message: null,
+      });
+    } catch (_) {}
+
     return NextResponse.json({ processed: results.length, results, history: historySnapshot });
   } catch (err) {
+    try {
+      await recordWebhookReceipt({ status: 'error', http: 500, test: isTest, topic, orderName: null, orderId: null, message: err?.message ?? 'Unknown error' });
+    } catch (_) {}
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
