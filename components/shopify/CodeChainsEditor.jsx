@@ -24,6 +24,10 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import Fn6CodeCombobox from './Fn6CodeCombobox';
 
+import { formatFn6Currency } from '../../lib/fn6ItemFields';
+
+const DASH = '—';
+
 function formatOptionLabel(optionValues) {
   return Object.entries(optionValues || {})
     .map(([name, value]) => `${name}: ${value}`)
@@ -50,6 +54,7 @@ function ChainRow({
   disabled,
   mco,
   globalReservedCodes,
+  soldPrices = {},
   onChange,
   onRemoveCode,
   onAddCode,
@@ -140,7 +145,14 @@ function ChainRow({
                   {isActive ? (
                     <Badge variant="secondary" className="text-[10px] px-1.5">Active</Badge>
                   ) : isSold ? (
-                    <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">Sold</Badge>
+                    <>
+                      <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">Sold</Badge>
+                      <span className="ml-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+                        {soldPrices[code]?.soldPrice != null
+                          ? formatFn6Currency(soldPrices[code].soldPrice)
+                          : DASH}
+                      </span>
+                    </>
                   ) : (
                     <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">Queued</Badge>
                   )}
@@ -242,6 +254,35 @@ export default function CodeChainsEditor({
   const [migrating, setMigrating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [soldPrices, setSoldPrices] = useState({});
+
+  useEffect(() => {
+    const codes = Array.from(new Set(
+      (chains || []).flatMap(c => c.soldCodes || []),
+    ));
+    if (codes.length === 0) {
+      setSoldPrices({});
+      return undefined;
+    }
+    let cancelled = false;
+    Promise.all(
+      codes.map(async code => {
+        try {
+          const r = await fetch(`/api/shopify/sold-price?sku=${encodeURIComponent(code)}`);
+          if (!r.ok) return [code, null];
+          return [code, await r.json()];
+        } catch {
+          return [code, null];
+        }
+      }),
+    ).then(entries => {
+      if (cancelled) return;
+      setSoldPrices(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [chains]);
 
   const load = useCallback(async () => {
     if (!productId) return;
@@ -407,6 +448,7 @@ export default function CodeChainsEditor({
                 disabled={disabled || saving}
                 mco={mco}
                 globalReservedCodes={globalReservedCodes}
+                soldPrices={soldPrices}
                 onChange={next => updateChain(index, next)}
                 onAddCode={() => {
                   updateChain(index, { ...chain, codes: [...(chain.codes || []), ''] });

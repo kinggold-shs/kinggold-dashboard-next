@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, Search } from 'lucide-react';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_COLORS, TYPE_LABELS } from '../../constants/fn6';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -23,9 +24,29 @@ export default function ItemsManagementTab({ initialSku }) {
   const [mediaBusy, setMediaBusy] = useState(false);
   const [shopifyImageCount, setShopifyImageCount] = useState(0);
   const [variantsRefreshKey, setVariantsRefreshKey] = useState(0);
+  const [soldInfo, setSoldInfo] = useState(null);
 
   const handleShopifyListingUpdated = useCallback(() => {
     setVariantsRefreshKey(k => k + 1);
+  }, []);
+
+  const fetchSoldInfo = useCallback(async (mco) => {
+    const code = String(mco || '').trim();
+    if (!code) {
+      setSoldInfo(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/shopify/is-sold?sku=${encodeURIComponent(code)}`);
+      if (!res.ok) {
+        setSoldInfo(null);
+        return;
+      }
+      const data = await res.json();
+      setSoldInfo(data);
+    } catch {
+      setSoldInfo(null);
+    }
   }, []);
 
   const loadByCode = useCallback(async (codeValue) => {
@@ -33,17 +54,20 @@ export default function ItemsManagementTab({ initialSku }) {
     if (!code) return;
     setLoading(true);
     setError('');
+    setSoldInfo(null);
     try {
       const res = await fn6Api.getByMco(code);
       setItem(res.data);
       setLookup(code);
+      fetchSoldInfo(res.data?.mco);
     } catch (err) {
       setError(err?.response?.data?.detail || err.message || 'Item not found. Use FN6 code / SKU.');
       setItem(null);
+      setSoldInfo(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchSoldInfo]);
 
   useEffect(() => {
     if (initialSku) {
@@ -57,10 +81,11 @@ export default function ItemsManagementTab({ initialSku }) {
     try {
       const res = await fn6Api.getByMco(item.mco);
       setItem(res.data);
+      fetchSoldInfo(res.data?.mco);
     } catch {
       // keep existing item view on refresh failure
     }
-  }, [item?.mco]);
+  }, [item?.mco, fetchSoldInfo]);
 
   const typeColor = useMemo(() => TYPE_COLORS[item?.co] || 'oklch(55% 0 0)', [item?.co]);
 
@@ -93,6 +118,72 @@ export default function ItemsManagementTab({ initialSku }) {
 
       {item ? (
         <>
+          {soldInfo?.sold ? (
+            <Card className="border-destructive/40 bg-destructive/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2 text-destructive">
+                  <span>Sold</span>
+                  <Badge variant="destructive" className="font-normal">
+                    Price-locked
+                  </Badge>
+                  <span className="type-badge" style={{
+                    background: `color-mix(in oklch, ${typeColor} 12%, transparent)`,
+                    color: typeColor,
+                    border: `1px solid color-mix(in oklch, ${typeColor} 22%, transparent)`,
+                  }}>
+                    {TYPE_LABELS[item.co] || `${item.co}K`}
+                  </span>
+                </CardTitle>
+                <CardDescription>
+                  {soldInfo.soldSnapshot
+                    ? 'Locked at sale time — will not drift with live gold price.'
+                    : 'Chain-advanced — no order snapshot found.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Sold Price:</span>{' '}
+                  {soldInfo.soldSnapshot
+                    ? formatFn6Currency(soldInfo.soldSnapshot.soldPrice) ?? DASH
+                    : formatFn6Currency(item.price)}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">18K at sale:</span>{' '}
+                  {formatFn6Currency(soldInfo.soldSnapshot?.goldPrice18k) ?? DASH}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">21K at sale:</span>{' '}
+                  {formatFn6Currency(soldInfo.soldSnapshot?.goldPrice21k) ?? DASH}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">USD Rate:</span>{' '}
+                  {soldInfo.soldSnapshot?.usdRate != null
+                    ? `$1 = EGP ${Number(soldInfo.soldSnapshot.usdRate).toFixed(2)}`
+                    : DASH}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Order:</span>{' '}
+                  {soldInfo.soldSnapshot?.orderName ?? '—'}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Sold on:</span>{' '}
+                  {soldInfo.soldSnapshot?.purchasedAt
+                    ? new Intl.DateTimeFormat('en-GB', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: '2-digit',
+                      }).format(new Date(soldInfo.soldSnapshot.purchasedAt))
+                    : DASH}
+                </div>
+                {!soldInfo.soldSnapshot ? (
+                  <p className="sm:col-span-2 lg:col-span-4 text-xs italic text-muted-foreground">
+                    chain-advanced — no order snapshot found
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">

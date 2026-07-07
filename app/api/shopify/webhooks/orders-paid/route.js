@@ -2,9 +2,11 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { getShopifyToken } from '../../../../../lib/shopify';
 import {
+  fetchCodeChainsMetafield,
   fetchProcessedOrderLines,
   markOrderLineProcessed,
   processOrderLineForChains,
+  unpublishProductIfFullySoldOut,
 } from '../../../../../lib/codeChainService';
 import { fetchGoldRateSnapshot } from '../../../../../lib/goldRates';
 import { upsertOrderSnapshotMetafields } from '../../../../../lib/shopifyOrderHistory';
@@ -141,6 +143,17 @@ export async function POST(request) {
           lineIds.add(lineId);
           processedAny = true;
           results.push({ lineId, ...result });
+        }
+        if (result.advanced) {
+          try {
+            const { payload } = await fetchCodeChainsMetafield(domain, token, String(productId));
+            const chains = Array.isArray(payload?.chains) ? payload.chains : [];
+            if (chains.length > 0) {
+              await unpublishProductIfFullySoldOut(domain, token, String(productId), chains);
+            }
+          } catch (unpublishErr) {
+            results.push({ lineId, unpublishError: unpublishErr?.message || String(unpublishErr) });
+          }
         }
       } catch (err) {
         results.push({ lineId, error: err.message });

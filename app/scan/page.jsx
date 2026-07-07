@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import DashboardShell from '../../components/DashboardShell';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_LABELS, TYPE_COLORS } from '../../constants/fn6';
@@ -93,9 +93,66 @@ function ScanResult({ item }) {
   );
 }
 
+function SoldResult({ item, soldInfo }) {
+  const snapshot = soldInfo?.soldSnapshot;
+  const soldPrice = snapshot?.soldPrice != null
+    ? formatFn6Currency(snapshot.soldPrice)
+    : formatFn6Currency(item?.price);
+  const gold18k = snapshot?.goldPrice18k != null ? formatFn6Currency(snapshot.goldPrice18k) : DASH;
+  const gold21k = snapshot?.goldPrice21k != null ? formatFn6Currency(snapshot.goldPrice21k) : DASH;
+  const usdRate = snapshot?.usdRate != null ? `$1 = EGP ${Number(snapshot.usdRate).toFixed(2)}` : DASH;
+  const orderName = snapshot?.orderName || DASH;
+  const purchasedAt = snapshot?.purchasedAt
+    ? new Date(snapshot.purchasedAt).toLocaleDateString()
+    : DASH;
+  const isChainOnly = soldInfo?.sold === true && snapshot == null;
+
+  return (
+    <div className="scan-result scan-result--sold animate-fadeIn">
+      <div className="scan-sold-banner">
+        <Package size={18} />
+        <span className="font-semibold tracking-wide">SOLD</span>
+      </div>
+
+      <div className="scan-result-header">
+        <div className="scan-result-code">
+          <code>{item.mco}</code>
+        </div>
+        {item.idis && <p className="scan-result-name">{item.idis}</p>}
+      </div>
+
+      {isChainOnly && (
+        <p className="scan-sold-note">
+          Chain-advanced — no order snapshot found. Showing FN6 stored price.
+        </p>
+      )}
+
+      <div className="scan-fields-grid">
+        <Field label="Sold Price" value={soldPrice} />
+        <Field label="18K at sale" value={gold18k} />
+        <Field label="21K at sale" value={gold21k} />
+        <Field label="USD Rate" value={usdRate} />
+        <Field label="Order" value={orderName} />
+        <Field label="Sold on" value={purchasedAt} />
+      </div>
+
+      <div className="scan-result-actions">
+        <Link href={`/shopify?tab=manage&sku=${encodeURIComponent(String(item.mco))}`}>
+          <Button variant="outline" size="sm">
+            <Settings size={14} className="mr-1" />
+            Manage on Shopify
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function ScanPage() {
+  const queryClient = useQueryClient();
   const [code, setCode] = useState('');
   const [result, setResult] = useState(null);
+  const [soldInfo, setSoldInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
@@ -106,6 +163,8 @@ export default function ScanPage() {
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
 
+  const [cleanupState, setCleanupState] = useState({ status: 'idle', summary: null, error: null });
+
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const handleScan = useCallback(async (value) => {
@@ -113,10 +172,20 @@ export default function ScanPage() {
     if (!mco) return;
     setError('');
     setResult(null);
+    setSoldInfo(null);
     setLoading(true);
     try {
       const res = await fn6Api.getByMco(mco);
       setResult(res.data);
+      try {
+        const r = await fetch(`/api/shopify/is-sold?sku=${encodeURIComponent(mco)}`);
+        if (r.ok) {
+          const data = await r.json();
+          setSoldInfo(data);
+        }
+      } catch {
+        /* ignore - non-fatal */
+      }
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || 'Item not found');
     } finally {
@@ -129,9 +198,24 @@ export default function ScanPage() {
   const handleReset = () => {
     setCode('');
     setResult(null);
+    setSoldInfo(null);
     setError('');
     inputRef.current?.focus();
   };
+
+  const runCleanup = useCallback(async () => {
+    if (!window.confirm('Sweep all sold items out of Shopify now? Items with Gweb qt=0 AND a confirmed prior sale will be hidden. Safe to re-run.')) return;
+    setCleanupState({ status: 'running', summary: null, error: null });
+    try {
+      const res = await fetch('/api/shopify/cleanup-sold', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Cleanup failed');
+      setCleanupState({ status: 'done', summary: data, error: null });
+      queryClient.invalidateQueries({ queryKey: ['sold-skus'] });
+    } catch (err) {
+      setCleanupState({ status: 'error', summary: null, error: err?.message || 'Unknown error' });
+    }
+  }, [queryClient]);
 
   const listParams = useMemo(() => ({
     page,
@@ -144,7 +228,23 @@ export default function ScanPage() {
     queryFn: () => fn6Api.list(listParams).then(r => r.data),
   });
 
+  const { data: soldSkusData } = useQuery({
+    queryKey: ['sold-skus'],
+    queryFn: () => fetch('/api/shopify/sold-skus').then(r => r.json()),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+  const soldSkuSet = useMemo(
+    () => new Set((soldSkusData?.soldSkus || []).map(String)),
+    [soldSkusData],
+  );
+
   const items = listRes?.results || [];
+  const filteredItems = useMemo(
+    () => items.filter(it => !soldSkuSet.has(String(it.mco))),
+    [items, soldSkuSet],
+  );
+  const hiddenCount = items.length - filteredItems.length;
   const count = listRes?.count || 0;
   const totalPages = Math.ceil(count / 50);
 
@@ -156,8 +256,8 @@ export default function ScanPage() {
   }, [sortKey]);
 
   const sortedItems = useMemo(() => {
-    if (!sortKey) return items;
-    return [...items].sort((a, b) => {
+    if (!sortKey) return filteredItems;
+    return [...filteredItems].sort((a, b) => {
       let va = a[sortKey];
       let vb = b[sortKey];
       if (va == null) va = sortDir === 'asc' ? Infinity : -Infinity;
@@ -166,7 +266,7 @@ export default function ScanPage() {
       if (va > vb) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [items, sortKey, sortDir]);
+  }, [filteredItems, sortKey, sortDir]);
 
   const SortIcon = ({ columnKey }) => {
     if (sortKey !== columnKey) return <ChevronsUpDown size={12} className="text-neutral-400" />;
@@ -186,13 +286,56 @@ export default function ScanPage() {
     <DashboardShell>
       <div className="space-y-6">
         <div className="scan-page">
-          <div className="scan-header animate-fadeIn">
-            <div className="scan-icon-wrap"><ScanBarcode size={22} /></div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Item Scanner</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Scan or type a code — or click any code below</p>
+          <div className="scan-header animate-fadeIn flex justify-between items-start gap-3">
+            <div className="flex items-center gap-3">
+              <div className="scan-icon-wrap"><ScanBarcode size={22} /></div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">Item Scanner</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Scan or type a code — or click any code below</p>
+              </div>
             </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={runCleanup}
+              disabled={cleanupState.status === 'running'}
+              className="shrink-0"
+            >
+              {cleanupState.status === 'running' ? 'Sweeping…' : 'Remove sold items'}
+            </Button>
           </div>
+
+          {cleanupState.status !== 'idle' && (
+            <div className={`scan-cleanup-panel scan-cleanup-panel--${cleanupState.status} animate-slideDown`}>
+              {cleanupState.status === 'running' && (
+                <span className="text-sm">Sweeping sold items…</span>
+              )}
+              {cleanupState.status === 'done' && cleanupState.summary && (
+                <div className="flex items-center justify-between gap-3 w-full">
+                  <span className="text-sm">
+                    Done — {cleanupState.summary.soldFound ?? 0} sold found,
+                    {' '}{cleanupState.summary.inventoryZeroed ?? 0} inventory zeroed,
+                    {' '}{cleanupState.summary.chainsAdvanced ?? 0} chains advanced,
+                    {' '}{cleanupState.summary.productsUnpublished ?? 0} products hidden
+                    {cleanupState.summary.skippedNoSaleRecord?.length
+                      ? `, ${cleanupState.summary.skippedNoSaleRecord.length} skipped (no sale record)`
+                      : ''}
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setCleanupState({ status: 'idle', summary: null, error: null })}>
+                    Close
+                  </Button>
+                </div>
+              )}
+              {cleanupState.status === 'error' && (
+                <div className="flex items-center justify-between gap-3 w-full">
+                  <span className="text-sm">{cleanupState.error}</span>
+                  <Button size="sm" variant="ghost" onClick={() => setCleanupState({ status: 'idle', summary: null, error: null })}>
+                    Close
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="scan-input-wrap animate-fadeIn" style={{ animationDelay: '60ms' }}>
             <div className="relative flex-1">
@@ -227,7 +370,9 @@ export default function ScanPage() {
             </div>
           )}
 
-          {result && !loading && <ScanResult key={result.mco} item={result} />}
+          {result && !loading && (soldInfo?.sold
+            ? <SoldResult key={`sold-${result.mco}`} item={result} soldInfo={soldInfo} />
+            : <ScanResult key={result.mco} item={result} />)}
         </div>
 
         <div className="space-y-3">
@@ -237,6 +382,11 @@ export default function ScanPage() {
               {!listLoading && (
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {formatNumber(count)} item{count !== 1 ? 's' : ''}
+                  {hiddenCount > 0 && (
+                    <span className="ml-1 text-amber-600">
+                      ({formatNumber(hiddenCount)} hidden — sold)
+                    </span>
+                  )}
                   {searchParam && <span className="ml-1 text-gold-600">&middot; filtered</span>}
                 </p>
               )}
