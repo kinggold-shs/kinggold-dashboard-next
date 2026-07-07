@@ -125,12 +125,14 @@ export async function POST() {
           const sold = isSkuSold({ gwebQt: qt, soldSnapshot, isInSoldCodes });
 
           if (!sold) {
+            // qt<=0 but no paid sale record and no chain soldCode -> not a confirmed sale.
+            // Don't hide it (could be a Gweb glitch / never-stocked / reserved item).
             if (gwebIsOutOfStock(qt)) {
               if (summary.skippedNoSaleRecord.length < SKIPPED_LIMIT) {
                 summary.skippedNoSaleRecord.push({
                   sku,
                   gwebQt: qt,
-                  reason: 'qt<=0 but no prior sale record',
+                  reason: 'qt<=0 but no paid sale record and not in soldCodes',
                 });
               }
             }
