@@ -23,9 +23,9 @@ export async function GET(request) {
       return jsonNoStore({ error: 'sku is required' }, 400);
     }
 
-    const result = await refreshVariantPrice(sku);
+    const result = await refreshVariantPrice(sku, { force: true });
     return jsonNoStore(result);
   } catch (err) {
-    return jsonNoStore({ error: err.message || 'Internal error' }, 500);
+    return jsonNoStore({ error: err.message || 'Internal error' }, 502);
   }
 }

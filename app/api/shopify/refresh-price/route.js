@@ -21,6 +21,10 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
+// This is the endpoint the theme actually calls (kg-pricing-core.js
+// PROXY_PATH → /api/shopify/refresh-price) at add-to-cart and checkout.
+// It must confirm a written price or fail loudly — the theme's checkout
+// intercept treats a non-2xx / non-`updated` response as a hard block.
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -28,10 +32,10 @@ export async function GET(request) {
     if (!sku) {
       return jsonNoStore({ error: 'sku is required' }, 400);
     }
-    const result = await refreshVariantPrice(sku);
+    const result = await refreshVariantPrice(sku, { force: true });
     return jsonNoStore(result);
   } catch (err) {
-    return jsonNoStore({ error: err.message || 'Internal error' }, 500);
+    return jsonNoStore({ error: err.message || 'Internal error' }, 502);
   }
 }
 
@@ -42,9 +46,9 @@ export async function POST(request) {
     if (!sku) {
       return jsonNoStore({ error: 'sku is required' }, 400);
     }
-    const result = await refreshVariantPrice(sku);
+    const result = await refreshVariantPrice(sku, { force: true });
     return jsonNoStore(result);
   } catch (err) {
-    return jsonNoStore({ error: err.message || 'Internal error' }, 500);
+    return jsonNoStore({ error: err.message || 'Internal error' }, 502);
   }
 }
