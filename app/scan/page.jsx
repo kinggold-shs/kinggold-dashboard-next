@@ -26,6 +26,10 @@ const COLUMNS = [
   { title: 'Karat', key: 'co', sortable: true },
   { title: 'Weight (g)', key: 'go_cr', sortable: true },
   { title: 'Qty', key: 'qt', sortable: true },
+  // The per-gram making charge added to the 18K rate before multiplying by
+  // weight — price = round5((pr18 + prc) × weight). Shown so the price can
+  // be traced back to its inputs at a glance.
+  { title: 'Making /g', key: 'prc', sortable: true },
   { title: 'Price', key: 'price', sortable: true },
 ];
 
@@ -404,6 +408,13 @@ export default function ScanPage() {
                       </TableCell>
                       <TableCell className="text-sm font-mono">{stockItem.go_cr != null ? `${Number(stockItem.go_cr).toFixed(3)}g` : DASH}</TableCell>
                       <TableCell className="text-sm">{stockItem.qt ?? DASH}</TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {Number(stockItem.prcus) > 0
+                          ? `$${Number(stockItem.prcus).toFixed(2)}`
+                          : Number(stockItem.prc) > 0
+                            ? formatFn6Currency(stockItem.prc)
+                            : DASH}
+                      </TableCell>
                       <TableCell className="text-sm font-mono font-medium">{stockItem.price != null ? formatFn6Currency(stockItem.price) : DASH}</TableCell>
                     </TableRow>
                   ))}
