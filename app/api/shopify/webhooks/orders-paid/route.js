@@ -8,9 +8,22 @@ import {
   processOrderLineForChains,
   unpublishProductIfFullySoldOut,
 } from '../../../../../lib/codeChainService';
-import { fetchGoldRateSnapshot } from '../../../../../lib/goldRates';
+import { fetchGoldRateSnapshotAt } from '../../../../../lib/goldRates';
 import { upsertOrderSnapshotMetafields } from '../../../../../lib/shopifyOrderHistory';
 import { recordWebhookReceipt } from '../../../../../lib/webhookReceipts.js';
+import { refreshVariantPrice } from '../../../../../lib/refreshVariantPrice';
+
+export const maxDuration = 60;
+
+// Multiple line items each trigger several sequential Shopify Admin API
+// calls (processOrderLineForChains, metafield reads/writes, price PUTs).
+// Without a gap, a multi-item order can burst past Shopify's 2 req/sec
+// bucket and crash the whole webhook handler (seen live: order #1119,
+// "Exceeded 2 calls per second for api client").
+const LINE_ITEM_DELAY_MS = 600;
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function verifyShopifyWebhook(rawBody, hmacHeader) {
   const secret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_CLIENT_SECRET;
@@ -70,11 +83,12 @@ async function persistPurchaseSnapshot(order, request, domain, token) {
     raw_order_id: orderId,
   };
 
-  const rates = await fetchGoldRateSnapshot();
+  const purchasedAt = order?.processed_at || order?.created_at || snapshot.webhook_received_at;
+  const rates = await fetchGoldRateSnapshotAt(purchasedAt);
   snapshot.gold_price_18k = rates.pr18;
   snapshot.gold_price_21k = rates.pr21;
   snapshot.usd_rate = rates.usd_rate;
-  snapshot.snapshot_taken_at = snapshot.webhook_received_at;
+  snapshot.snapshot_taken_at = purchasedAt;
 
   await upsertOrderSnapshotMetafields(domain, token, orderId, snapshot);
   return { inserted: true, shopify_order_id: orderId };
@@ -102,6 +116,40 @@ export async function POST(request) {
     const order = JSON.parse(rawBody);
     const lineItems = order?.line_items || [];
     const { token, domain } = await getShopifyToken();
+
+    // Zero-price alert: this is the moment real money (or lack of it) is
+    // confirmed. If any paid line item has price <= 0, the store just gave
+    // away that piece for free — the exact failure mode behind this
+    // incident. Flag it loudly in the webhook receipts (visible to admin in
+    // the dashboard) and, on a best-effort basis, heal that SKU's stored
+    // Shopify price immediately so it can't repeat on the next order.
+    const zeroPriceLines = lineItems.filter((line) => {
+      const price = Number(line?.price);
+      return line?.sku && Number.isFinite(price) && price <= 0 && Number(line?.quantity) > 0;
+    });
+    if (zeroPriceLines.length > 0) {
+      const skus = zeroPriceLines.map((l) => l.sku);
+      console.error(`[orders-paid] ZERO PRICE ALERT: order ${order?.name || order?.id} has ${zeroPriceLines.length} line item(s) charged 0: ${skus.join(', ')}`);
+      try {
+        await recordWebhookReceipt({
+          status: 'zero_price_alert',
+          http: 200,
+          test: request.headers.get('x-shopify-test') === 'true',
+          topic: request.headers.get('x-shopify-topic') ?? 'orders/paid',
+          orderName: order?.name ?? null,
+          orderId: String(order?.id ?? ''),
+          message: `Order charged 0 EGP for SKU(s): ${skus.join(', ')} — check and correct this order manually in Shopify admin.`,
+        });
+      } catch (_) {}
+      for (const sku of skus) {
+        try {
+          await refreshVariantPrice(sku);
+        } catch (_) {
+          // best-effort heal; the receipt above already flagged this order for manual review
+        }
+        await sleep(LINE_ITEM_DELAY_MS);
+      }
+    }
 
     let historySnapshot = null;
     try {
@@ -158,6 +206,7 @@ export async function POST(request) {
       } catch (err) {
         results.push({ lineId, error: err.message });
       }
+      await sleep(LINE_ITEM_DELAY_MS);
     }
 
     if (processedAny) {

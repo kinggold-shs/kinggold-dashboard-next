@@ -101,7 +101,15 @@ export async function POST(request, { params }) {
 
     const variant = {};
     if (body.sku !== undefined) variant.sku = String(body.sku);
-    if (body.price !== undefined) variant.price = String(Number(body.price).toFixed(2));
+    const priceNum = body.price !== undefined && body.price !== '' ? Number(body.price) : NaN;
+    if (Number.isFinite(priceNum) && priceNum > 0) {
+      variant.price = priceNum.toFixed(2);
+    } else if (body.price !== undefined) {
+      // A blank/zero/non-finite price must never be coerced to "0.00" and
+      // silently sent to Shopify — that is exactly how variants have ended
+      // up sellable at 0 EGP. Omit the field instead of zeroing it.
+      console.error(`[variants:POST] refusing to send invalid price "${body.price}" for sku ${body.sku ?? '(none)'} — price field omitted`);
+    }
     const inventoryQty = parseInventoryQuantityFromBody(body);
     if (inventoryQty != null) {
       Object.assign(variant, restVariantInventoryFields(inventoryQty));

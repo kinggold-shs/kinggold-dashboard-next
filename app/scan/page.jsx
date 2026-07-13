@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import DashboardShell from '../../components/DashboardShell';
 import { fn6Api } from '../../api/fn6';
 import { TYPE_LABELS, TYPE_COLORS } from '../../constants/fn6';
@@ -149,7 +149,6 @@ function SoldResult({ item, soldInfo }) {
 }
 
 export default function ScanPage() {
-  const queryClient = useQueryClient();
   const [code, setCode] = useState('');
   const [result, setResult] = useState(null);
   const [soldInfo, setSoldInfo] = useState(null);
@@ -162,8 +161,6 @@ export default function ScanPage() {
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
-
-  const [cleanupState, setCleanupState] = useState({ status: 'idle', summary: null, error: null });
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -202,20 +199,6 @@ export default function ScanPage() {
     setError('');
     inputRef.current?.focus();
   };
-
-  const runCleanup = useCallback(async () => {
-    if (!window.confirm('Sweep all sold items out of Shopify now? Items with Gweb qt=0 AND a confirmed prior sale will be hidden. Safe to re-run.')) return;
-    setCleanupState({ status: 'running', summary: null, error: null });
-    try {
-      const res = await fetch('/api/shopify/cleanup-sold', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || 'Cleanup failed');
-      setCleanupState({ status: 'done', summary: data, error: null });
-      queryClient.invalidateQueries({ queryKey: ['sold-skus'] });
-    } catch (err) {
-      setCleanupState({ status: 'error', summary: null, error: err?.message || 'Unknown error' });
-    }
-  }, [queryClient]);
 
   const listParams = useMemo(() => ({
     page,
@@ -294,48 +277,7 @@ export default function ScanPage() {
                 <p className="text-xs text-muted-foreground mt-0.5">Scan or type a code — or click any code below</p>
               </div>
             </div>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={runCleanup}
-              disabled={cleanupState.status === 'running'}
-              className="shrink-0"
-            >
-              {cleanupState.status === 'running' ? 'Sweeping…' : 'Remove sold items'}
-            </Button>
           </div>
-
-          {cleanupState.status !== 'idle' && (
-            <div className={`scan-cleanup-panel scan-cleanup-panel--${cleanupState.status} animate-slideDown`}>
-              {cleanupState.status === 'running' && (
-                <span className="text-sm">Sweeping sold items…</span>
-              )}
-              {cleanupState.status === 'done' && cleanupState.summary && (
-                <div className="flex items-center justify-between gap-3 w-full">
-                  <span className="text-sm">
-                    Done — {cleanupState.summary.soldFound ?? 0} sold found,
-                    {' '}{cleanupState.summary.inventoryZeroed ?? 0} inventory zeroed,
-                    {' '}{cleanupState.summary.chainsAdvanced ?? 0} chains advanced,
-                    {' '}{cleanupState.summary.productsUnpublished ?? 0} products hidden
-                    {cleanupState.summary.skippedNoSaleRecord?.length
-                      ? `, ${cleanupState.summary.skippedNoSaleRecord.length} skipped (no sale record)`
-                      : ''}
-                  </span>
-                  <Button size="sm" variant="ghost" onClick={() => setCleanupState({ status: 'idle', summary: null, error: null })}>
-                    Close
-                  </Button>
-                </div>
-              )}
-              {cleanupState.status === 'error' && (
-                <div className="flex items-center justify-between gap-3 w-full">
-                  <span className="text-sm">{cleanupState.error}</span>
-                  <Button size="sm" variant="ghost" onClick={() => setCleanupState({ status: 'idle', summary: null, error: null })}>
-                    Close
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
 
           <div className="scan-input-wrap animate-fadeIn" style={{ animationDelay: '60ms' }}>
             <div className="relative flex-1">

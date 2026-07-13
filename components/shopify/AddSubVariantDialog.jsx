@@ -394,8 +394,9 @@ export default function AddSubVariantDialog({
   const selectedCanAssign =
     selected && !metadataLoading && fn6CodeExists(selectedItem);
   const inventoryReady = inventoryPreflightOk && !inventoryPreflightLoading;
+  const hasValidPrice = derivedPrice !== '' && Number(derivedPrice) > 0;
   const canCreate =
-    inventoryReady && selectedCanAssign && Boolean(customerOptionTypes.length);
+    inventoryReady && selectedCanAssign && Boolean(customerOptionTypes.length) && hasValidPrice;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -574,6 +575,11 @@ export default function AddSubVariantDialog({
                 <p className="text-xs text-muted-foreground">
                   Price is set automatically from the live gold price.
                 </p>
+                {!hasValidPrice && selectedCanAssign ? (
+                  <p className="text-xs text-destructive">
+                    No price available for this code yet — creation is blocked to avoid publishing a 0 EGP variant. Try again once the price is set in GWEB.
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : null}

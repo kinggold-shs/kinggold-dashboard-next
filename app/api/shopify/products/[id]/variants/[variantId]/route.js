@@ -91,7 +91,14 @@ export async function PUT(request, { params }) {
 
     const variant = { id: Number(variantId) };
     if (body.sku !== undefined) variant.sku = String(body.sku);
-    if (body.price !== undefined) variant.price = String(Number(body.price).toFixed(2));
+    const priceNum = body.price !== undefined && body.price !== '' ? Number(body.price) : NaN;
+    if (Number.isFinite(priceNum) && priceNum > 0) {
+      variant.price = priceNum.toFixed(2);
+    } else if (body.price !== undefined) {
+      // Same guard as the create route: never coerce a blank/zero/non-finite
+      // price to "0.00" — omit it instead of shipping a free variant.
+      console.error(`[variants:PUT] refusing to send invalid price "${body.price}" for variant ${variantId} — price field omitted`);
+    }
     const inventoryQty = parseInventoryQuantityFromBody(body);
     if (inventoryQty != null) {
       Object.assign(variant, restVariantInventoryFields(inventoryQty));

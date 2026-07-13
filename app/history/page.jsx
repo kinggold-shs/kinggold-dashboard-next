@@ -158,7 +158,7 @@ export default function HistoryPage() {
     .filter(r => typeFilter === 'all' || (typeFilter === 'test' ? r.test : !r.test));
 
   const last = filteredReceipts[0] ?? allReceipts[0];
-  const statusColor = { verified: 'bg-green-500', rejected: 'bg-red-500', error: 'bg-amber-500', skipped: 'bg-gray-400' };
+  const statusColor = { verified: 'bg-green-500', rejected: 'bg-red-500', error: 'bg-amber-500', skipped: 'bg-gray-400', zero_price_alert: 'bg-red-600' };
 
   const handleSearch = () => {
     setPage(1);

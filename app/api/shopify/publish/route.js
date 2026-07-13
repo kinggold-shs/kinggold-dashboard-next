@@ -13,9 +13,19 @@ export async function POST(request) {
     const { title, body_html, product_type, price, sku, images, vendor, tags, collectionIds } = body;
     const { token, domain } = await getShopifyToken();
 
+    const priceNum = Number(price);
+    if (!Number.isFinite(priceNum) || priceNum <= 0) {
+      // Never publish a product with an invalid/zero price — this is the
+      // exact defect that let a variant go live sellable at 0 EGP.
+      return NextResponse.json(
+        { error: `Cannot publish: invalid price "${price}"` },
+        { status: 400 },
+      );
+    }
+
     const inventoryQty = parseInventoryQuantityFromBody(body);
     const variantFields = {
-      price: String(Number(price).toFixed(2)),
+      price: priceNum.toFixed(2),
       sku: String(sku),
       ...(inventoryQty != null
         ? restVariantInventoryFields(inventoryQty)
@@ -66,8 +76,10 @@ export async function POST(request) {
     if (sku) {
       try {
         await refreshVariantPrice(String(sku));
-      } catch {
-        // publish succeeded; live GWEB sync is best-effort
+      } catch (e) {
+        // publish succeeded; live GWEB sync is best-effort, but log so a
+        // stale-price product doesn't fail silently.
+        console.error(`[publish] post-publish price refresh failed for ${sku}:`, e?.message || e);
       }
     }
 
