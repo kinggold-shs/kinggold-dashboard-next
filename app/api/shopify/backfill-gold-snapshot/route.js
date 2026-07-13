@@ -49,6 +49,19 @@ const PAID_ORDERS_QUERY = `
   }
 `;
 
+const SINGLE_ORDER_QUERY = `
+  query SingleOrderForBackfill($id: ID!) {
+    order(id: $id) {
+      id
+      legacyResourceId
+      name
+      createdAt
+      processedAt
+      snapshot: metafield(namespace: "${SNAPSHOT_NAMESPACE}", key: "${SNAPSHOT_JSON_KEY}") { value }
+    }
+  }
+`;
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -61,10 +74,74 @@ function safeJsonParse(value) {
   }
 }
 
+function isRateLimitError(err) {
+  return /429|exceeded.*calls per second/i.test(err?.message || '');
+}
+
+/** Recompute + rewrite one order's gold-rate snapshot metafields, mutating `summary`. */
+async function processOrderNode(node, domain, token, summary, maxAttempts, retryDelayMs) {
+  const orderId = node?.legacyResourceId ? String(node.legacyResourceId) : null;
+  const existingSnapshot = safeJsonParse(node?.snapshot?.value);
+  const purchasedAt = node?.processedAt || node?.createdAt || null;
+
+  if (!orderId || !existingSnapshot) {
+    summary.skippedNoSnapshot += 1;
+    return;
+  }
+  if (!purchasedAt) {
+    summary.skippedNoPurchaseDate += 1;
+    return;
+  }
+
+  try {
+    const rates = await fetchGoldRateSnapshotAt(purchasedAt);
+    const unchanged = Number(existingSnapshot.gold_price_18k) === rates.pr18
+      && Number(existingSnapshot.gold_price_21k) === rates.pr21
+      && Number(existingSnapshot.usd_rate) === rates.usd_rate;
+
+    if (unchanged) {
+      summary.skippedUnchanged += 1;
+      return;
+    }
+
+    const correctedSnapshot = {
+      ...existingSnapshot,
+      gold_price_18k: rates.pr18,
+      gold_price_21k: rates.pr21,
+      usd_rate: rates.usd_rate,
+      snapshot_taken_at: purchasedAt,
+    };
+
+    let lastErr = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        await upsertOrderSnapshotMetafields(domain, token, orderId, correctedSnapshot);
+        summary.updated += 1;
+        return;
+      } catch (writeErr) {
+        lastErr = writeErr;
+        if (!isRateLimitError(writeErr) || attempt === maxAttempts) throw writeErr;
+        await sleep(retryDelayMs);
+      }
+    }
+    throw lastErr;
+  } catch (err) {
+    summary.errors.push({ orderId, orderName: node?.name, message: err.message || String(err) });
+  }
+}
+
+// Extra retries for the ?orderId= single-order path — used to push through
+// persistent 429s on one specific order (live storefront traffic can keep
+// saturating the 2 req/sec bucket right when this runs) without re-walking
+// the whole paid-order catalog just to retry the one that failed.
+const SINGLE_ORDER_MAX_ATTEMPTS = 5;
+const SINGLE_ORDER_RETRY_DELAY_MS = 4000;
+
 export async function GET(request) {
   const startedAt = Date.now();
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get('cursor') || null;
+  const singleOrderId = searchParams.get('orderId') || null;
 
   const summary = {
     checked: 0,
@@ -81,6 +158,22 @@ export async function GET(request) {
   try {
     const { token, domain } = await getShopifyToken();
 
+    if (singleOrderId) {
+      const gid = singleOrderId.startsWith('gid://')
+        ? singleOrderId
+        : `gid://shopify/Order/${singleOrderId}`;
+      const data = await shopifyGraphql(domain, token, SINGLE_ORDER_QUERY, { id: gid });
+      const node = data?.order || null;
+      if (!node) {
+        summary.errors.push({ orderId: singleOrderId, message: 'order not found' });
+      } else {
+        await processOrderNode(node, domain, token, summary, SINGLE_ORDER_MAX_ATTEMPTS, SINGLE_ORDER_RETRY_DELAY_MS);
+      }
+      summary.hasMore = false;
+      summary.elapsedMs = Date.now() - startedAt;
+      return NextResponse.json(summary);
+    }
+
     const data = await shopifyGraphql(domain, token, PAID_ORDERS_QUERY, {
       first: BATCH_LIMIT,
       after: cursor,
@@ -92,48 +185,7 @@ export async function GET(request) {
 
     for (const node of nodes) {
       summary.checked += 1;
-      const orderId = node?.legacyResourceId ? String(node.legacyResourceId) : null;
-      const existingSnapshot = safeJsonParse(node?.snapshot?.value);
-      const purchasedAt = node?.processedAt || node?.createdAt || null;
-
-      if (!orderId || !existingSnapshot) {
-        summary.skippedNoSnapshot += 1;
-        continue;
-      }
-      if (!purchasedAt) {
-        summary.skippedNoPurchaseDate += 1;
-        continue;
-      }
-
-      try {
-        const rates = await fetchGoldRateSnapshotAt(purchasedAt);
-        const unchanged = Number(existingSnapshot.gold_price_18k) === rates.pr18
-          && Number(existingSnapshot.gold_price_21k) === rates.pr21
-          && Number(existingSnapshot.usd_rate) === rates.usd_rate;
-
-        if (unchanged) {
-          summary.skippedUnchanged += 1;
-        } else {
-          const correctedSnapshot = {
-            ...existingSnapshot,
-            gold_price_18k: rates.pr18,
-            gold_price_21k: rates.pr21,
-            usd_rate: rates.usd_rate,
-            snapshot_taken_at: purchasedAt,
-          };
-          try {
-            await upsertOrderSnapshotMetafields(domain, token, orderId, correctedSnapshot);
-          } catch (writeErr) {
-            const isRateLimited = /429|exceeded.*calls per second/i.test(writeErr?.message || '');
-            if (!isRateLimited) throw writeErr;
-            await sleep(RATE_LIMIT_RETRY_DELAY_MS);
-            await upsertOrderSnapshotMetafields(domain, token, orderId, correctedSnapshot);
-          }
-          summary.updated += 1;
-        }
-      } catch (err) {
-        summary.errors.push({ orderId, orderName: node?.name, message: err.message || String(err) });
-      }
+      await processOrderNode(node, domain, token, summary, 2, RATE_LIMIT_RETRY_DELAY_MS);
 
       if (Date.now() - startedAt > 8500) {
         summary.hasMore = true;
