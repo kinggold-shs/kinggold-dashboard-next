@@ -29,7 +29,7 @@ const COLUMNS = [
   // The per-gram making charge added to the 18K rate before multiplying by
   // weight — price = round5((pr18 + prc) × weight). Shown so the price can
   // be traced back to its inputs at a glance.
-  { title: 'Making /g', key: 'prc', sortable: true },
+  { title: 'Extra Price', key: 'prc', sortable: true },
   { title: 'Price', key: 'price', sortable: true },
 ];
 
@@ -119,6 +119,10 @@ function SoldResult({ item, soldInfo }) {
       ? formatFn6Currency(item.prc)
       : DASH;
   const weight = item?.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH;
+  // This card only renders for items that are SOLD, so remaining stock is 0 by
+  // definition — don't surface the FN6 qt field here, which still holds the
+  // pre-sale quantity and would read as if the piece were still available.
+  const quantity = 0;
 
   return (
     <div className="scan-result scan-result--sold animate-fadeIn">
@@ -143,8 +147,9 @@ function SoldResult({ item, soldInfo }) {
       <div className="scan-fields-grid">
         <Field label="Sold Price" value={soldPrice} />
         <Field label="18K at sale" value={gold18k} />
-        <Field label="Making / g" value={making} />
-        <Field label="Weight" value={weight} />
+        <Field label="Extra Price" value={making} />
+        <Field label="Total Weight" value={weight} />
+        <Field label="Quantity" value={quantity} />
         <Field label="21K at sale" value={gold21k} />
         <Field label="USD Rate" value={usdRate} />
         <Field label="Order" value={orderName} />
