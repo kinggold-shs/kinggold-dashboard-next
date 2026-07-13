@@ -10,6 +10,7 @@ import {
   ScanBarcode,
   ShoppingBag,
   History,
+  Wallet,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -25,6 +26,7 @@ import {
 const NAV = [
   { label: 'Dashboard', path: '/scan', icon: ScanBarcode },
   { label: 'Shopify', path: '/shopify', icon: ShoppingBag },
+  { label: 'Payments', path: '/payments', icon: Wallet },
   { label: 'History', path: '/history', icon: History },
 ];
 

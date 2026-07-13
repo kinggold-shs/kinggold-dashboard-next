@@ -15,6 +15,9 @@ export async function GET(request) {
       search: searchParams.get('search') || '',
       from: searchParams.get('from') || '',
       to: searchParams.get('to') || '',
+      // 'pending' is used by the Payments page to list orders awaiting a
+      // manual approve/decline; history keeps its existing paid-only default.
+      status: searchParams.get('status') || 'paid',
     });
 
     return NextResponse.json(data);
