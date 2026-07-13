@@ -22,8 +22,14 @@ export const dynamic = 'force-dynamic';
  * limits.
  */
 
-const BATCH_LIMIT = 25;
-const ITEM_DELAY_MS = 600;
+const BATCH_LIMIT = 10;
+// upsertOrderSnapshotMetafields fires a metafield GET plus up to 5
+// sequential PUT/POST writes per order against Shopify's 2 req/sec bucket.
+// 600ms was not enough gap and caused sustained 429s on a live run
+// (see backfill-zero-price for the same lesson); 1100ms plus one bounded
+// retry after a longer cooldown keeps this reliable.
+const ITEM_DELAY_MS = 1100;
+const RATE_LIMIT_RETRY_DELAY_MS = 3000;
 const SNAPSHOT_NAMESPACE = 'custom';
 const SNAPSHOT_JSON_KEY = 'kg_paid_snapshot';
 
@@ -115,7 +121,14 @@ export async function GET(request) {
             usd_rate: rates.usd_rate,
             snapshot_taken_at: purchasedAt,
           };
-          await upsertOrderSnapshotMetafields(domain, token, orderId, correctedSnapshot);
+          try {
+            await upsertOrderSnapshotMetafields(domain, token, orderId, correctedSnapshot);
+          } catch (writeErr) {
+            const isRateLimited = /429|exceeded.*calls per second/i.test(writeErr?.message || '');
+            if (!isRateLimited) throw writeErr;
+            await sleep(RATE_LIMIT_RETRY_DELAY_MS);
+            await upsertOrderSnapshotMetafields(domain, token, orderId, correctedSnapshot);
+          }
           summary.updated += 1;
         }
       } catch (err) {
