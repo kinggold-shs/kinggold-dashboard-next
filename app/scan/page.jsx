@@ -111,6 +111,15 @@ function SoldResult({ item, soldInfo }) {
     : DASH;
   const isChainOnly = soldInfo?.sold === true && snapshot == null;
 
+  // The other inputs to the price formula — price = round5((pr18 + prc) × weight).
+  // Without these the sold price can't be reconciled against the 18K rate at sale.
+  const making = Number(item?.prcus) > 0
+    ? `$${Number(item.prcus).toFixed(2)}`
+    : Number(item?.prc) > 0
+      ? formatFn6Currency(item.prc)
+      : DASH;
+  const weight = item?.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH;
+
   return (
     <div className="scan-result scan-result--sold animate-fadeIn">
       <div className="scan-sold-banner">
@@ -134,6 +143,8 @@ function SoldResult({ item, soldInfo }) {
       <div className="scan-fields-grid">
         <Field label="Sold Price" value={soldPrice} />
         <Field label="18K at sale" value={gold18k} />
+        <Field label="Making / g" value={making} />
+        <Field label="Weight" value={weight} />
         <Field label="21K at sale" value={gold21k} />
         <Field label="USD Rate" value={usdRate} />
         <Field label="Order" value={orderName} />
