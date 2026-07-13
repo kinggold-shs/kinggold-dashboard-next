@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { History, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { History, Download, Search, ChevronLeft, ChevronRight, Check, X, Loader2, AlertCircle } from 'lucide-react';
 import DashboardShell from '../../components/DashboardShell';
 import { Input } from '../../components/ui/input';
 import { Button } from '../../components/ui/button';
@@ -12,6 +12,14 @@ import {
 } from '../../components/ui/table';
 
 const PAGE_SIZE = 25;
+
+// 'all' first and default — every order shows, so order numbers run with no gaps.
+const TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'paid', label: 'Paid' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'voided', label: 'Voided' },
+];
 
 function formatCurrency(value, currency = 'EGP') {
   const num = Number(value);
@@ -115,6 +123,14 @@ export default function HistoryPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
+  const [tab, setTab] = useState('all');
+
+  // Approve marks money received; Decline cancels the order. Both are
+  // effectively irreversible, so neither fires on a single click.
+  const [confirming, setConfirming] = useState(null); // { orderId, action }
+  const [actionError, setActionError] = useState(null);
+
+  const queryClient = useQueryClient();
 
   const queryParams = useMemo(() => ({
     page,
@@ -122,7 +138,8 @@ export default function HistoryPage() {
     search: searchParam,
     from: toDateBoundary(fromDate, false),
     to: toDateBoundary(toDate, true),
-  }), [page, searchParam, fromDate, toDate]);
+    status: tab,
+  }), [page, searchParam, fromDate, toDate, tab]);
 
   const historyQuery = useQuery({
     queryKey: ['history', queryParams],
@@ -137,6 +154,33 @@ export default function HistoryPage() {
       return data;
     },
   });
+
+  const actionMutation = useMutation({
+    mutationFn: async ({ orderId, action }) => {
+      const res = await fetch('/api/shopify/payment-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `Failed to ${action} payment`);
+      return data;
+    },
+    onSuccess: () => {
+      setConfirming(null);
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+    },
+    onError: (err) => setActionError(err.message || 'Action failed'),
+  });
+
+  const isBusy = (orderId) => actionMutation.isPending
+    && actionMutation.variables?.orderId === orderId;
+
+  // Only a genuinely pending, uncancelled order can be approved or declined.
+  // Matters most on the All tab, where paid and voided rows sit alongside these.
+  const isPending = (row) => String(row.financial_status || '').toUpperCase() === 'PENDING'
+    && !row.cancelled_at;
 
   const rows = historyQuery.data?.results || [];
   const count = historyQuery.data?.count || 0;
@@ -189,7 +233,8 @@ export default function HistoryPage() {
                 <h1 className="text-xl font-bold tracking-tight">Purchase History</h1>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Shopify paid orders with snapshotted 18K / 21K gold prices and precise timing for ledger accounting.
+                Every Shopify order with its 18K / 21K gold prices and precise timing for ledger accounting.
+                Pending orders (paid outside Shopify — bank transfer, cash) can be approved or declined here.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -220,7 +265,30 @@ export default function HistoryPage() {
             <Button onClick={handleSearch}>Search</Button>
             <Button variant="ghost" onClick={handleClear}>Clear</Button>
           </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => { setTab(t.key); setPage(1); setConfirming(null); setActionError(null); }}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  tab === t.key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {actionError ? (
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+        ) : null}
 
         {/* Webhook status widget — hidden. It's a debugging/diagnostic view, not
             something the owner needs day to day. The data is still fetched and the
@@ -310,6 +378,7 @@ export default function HistoryPage() {
                     <TableHead>18K</TableHead>
                     <TableHead>21K</TableHead>
                     <TableHead>USD Rate</TableHead>
+                    <TableHead className="text-right">Payment</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -317,10 +386,12 @@ export default function HistoryPage() {
                     <TableRow key={row.shopify_order_id}>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium tabular-nums">{formatDateTime(row.purchased_at || row.webhook_received_at)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            webhook: {formatDateTime(row.webhook_received_at)}
-                          </div>
+                          <div className="font-medium tabular-nums">{formatDateTime(row.purchased_at || row.created_at)}</div>
+                          {row.webhook_received_at ? (
+                            <div className="text-xs text-muted-foreground">
+                              webhook: {formatDateTime(row.webhook_received_at)}
+                            </div>
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -344,9 +415,82 @@ export default function HistoryPage() {
                       <TableCell className="font-mono font-medium">
                         {formatCurrency(row.total_amount, row.currency_code || 'EGP')}
                       </TableCell>
-                      <TableCell className="font-mono">{formatCurrency(row.gold_price_18k, 'EGP')}</TableCell>
+                      <TableCell className="font-mono">
+                        {formatCurrency(row.gold_price_18k, 'EGP')}
+                        {row.rates_derived ? (
+                          <span
+                            className="ml-1 text-[10px] text-muted-foreground"
+                            title="Rate that was live when the order was placed. Not a payment snapshot — this order hasn't been paid through Shopify."
+                          >
+                            *
+                          </span>
+                        ) : null}
+                      </TableCell>
                       <TableCell className="font-mono">{formatCurrency(row.gold_price_21k, 'EGP')}</TableCell>
                       <TableCell className="font-mono">{formatNumber(row.usd_rate)}</TableCell>
+                      <TableCell>
+                        {isPending(row) ? (
+                          confirming?.orderId === row.shopify_order_id ? (
+                            <div className="flex flex-col items-end gap-1.5">
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {confirming.action === 'approve' ? 'Money arrived?' : 'Cancel order?'}
+                              </span>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant={confirming.action === 'approve' ? 'default' : 'destructive'}
+                                  disabled={isBusy(row.shopify_order_id)}
+                                  onClick={() => actionMutation.mutate({
+                                    orderId: row.shopify_order_id,
+                                    action: confirming.action,
+                                  })}
+                                >
+                                  {isBusy(row.shopify_order_id)
+                                    ? <Loader2 size={14} className="mr-1 animate-spin" />
+                                    : null}
+                                  Yes
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={isBusy(row.shopify_order_id)}
+                                  onClick={() => { setConfirming(null); setActionError(null); }}
+                                >
+                                  No
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                disabled={actionMutation.isPending}
+                                onClick={() => {
+                                  setActionError(null);
+                                  setConfirming({ orderId: row.shopify_order_id, action: 'approve' });
+                                }}
+                              >
+                                <Check size={14} className="mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={actionMutation.isPending}
+                                onClick={() => {
+                                  setActionError(null);
+                                  setConfirming({ orderId: row.shopify_order_id, action: 'decline' });
+                                }}
+                              >
+                                <X size={14} className="mr-1" />
+                                Decline
+                              </Button>
+                            </div>
+                          )
+                        ) : (
+                          <div className="text-right text-xs text-muted-foreground">—</div>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
