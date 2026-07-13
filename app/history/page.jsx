@@ -142,6 +142,10 @@ export default function HistoryPage() {
   const count = historyQuery.data?.count || 0;
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
+  /* Webhook receipts — state + polling for the hidden diagnostic panel below.
+     Commented out with it so the page isn't polling /api/webhooks/receipts every
+     10s for a view nobody can see. Uncomment together with the panel.
+
   const { data: webhookData } = useQuery({
     queryKey: ['webhook-receipts'],
     queryFn: () => fetch('/api/webhooks/receipts').then(r => r.json()),
@@ -159,6 +163,7 @@ export default function HistoryPage() {
 
   const last = filteredReceipts[0] ?? allReceipts[0];
   const statusColor = { verified: 'bg-green-500', rejected: 'bg-red-500', error: 'bg-amber-500', skipped: 'bg-gray-400', zero_price_alert: 'bg-red-600' };
+  */
 
   const handleSearch = () => {
     setPage(1);
@@ -217,7 +222,10 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* Webhook status widget */}
+        {/* Webhook status widget — hidden. It's a debugging/diagnostic view, not
+            something the owner needs day to day. The data is still fetched and the
+            /api/webhooks/receipts endpoint still works, so restoring this is just a
+            matter of uncommenting the block below.
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">Webhook Receipts</h3>
@@ -265,6 +273,7 @@ export default function HistoryPage() {
             </div>
           )}
         </div>
+        */}
 
         {historyQuery.isLoading ? (
           <div className="table-wrap p-4 space-y-3">
