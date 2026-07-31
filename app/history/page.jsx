@@ -10,6 +10,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '../../components/ui/table';
+import { formatFn6MfgPerGram, FN6_DASH } from '../../lib/fn6ItemFields';
 
 const PAGE_SIZE = 25;
 
@@ -57,9 +58,39 @@ function compactItems(items) {
     .map((item) => {
       const sku = item?.sku || item?.variant_sku || item?.title || 'Item';
       const qty = Number(item?.quantity) || 0;
-      return `${sku}${qty > 1 ? ` ×${qty}` : ''}`;
+      const mfg = formatFn6MfgPerGram(item);
+      const mfgPart = mfg === FN6_DASH ? '' : ` (Mfg ${mfg})`;
+      return `${sku}${qty > 1 ? ` ×${qty}` : ''}${mfgPart}`;
     })
     .join(', ');
+}
+
+/** Per-line breakdown inside an order — SKU, qty and the manufacturer charge per gram. */
+function OrderItems({ items }) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return <div className="text-sm text-muted-foreground">{FN6_DASH}</div>;
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {items.map((item, idx) => {
+        const sku = item?.sku || item?.variant_sku || item?.title || 'Item';
+        const qty = Number(item?.quantity) || 0;
+        return (
+          <div key={item?.id || `${sku}-${idx}`} className="text-sm leading-tight">
+            <div className="flex items-baseline gap-1.5">
+              <code className="font-mono text-xs">{sku}</code>
+              {qty > 1 ? <span className="text-xs text-muted-foreground">×{qty}</span> : null}
+            </div>
+            <div className="text-xs text-muted-foreground tabular-nums">
+              Mfg / g: {formatFn6MfgPerGram(item)}
+              {item?.weight_g != null ? ` · ${Number(item.weight_g).toFixed(3)} g` : ''}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function toDateBoundary(value, endOfDay = false) {
@@ -410,7 +441,7 @@ export default function HistoryPage() {
                         </div>
                       </TableCell>
                       <TableCell className="max-w-[280px]">
-                        <div className="text-sm">{compactItems(row.items)}</div>
+                        <OrderItems items={row.items} />
                       </TableCell>
                       <TableCell className="font-mono font-medium">
                         {formatCurrency(row.total_amount, row.currency_code || 'EGP')}
