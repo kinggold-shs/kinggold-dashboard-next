@@ -10,7 +10,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '../../components/ui/table';
-import { formatFn6MfgPerGram, FN6_DASH } from '../../lib/fn6ItemFields';
+import { formatFn6MfgPerGram, formatFn6MfgTotal, FN6_DASH } from '../../lib/fn6ItemFields';
 
 const PAGE_SIZE = 25;
 
@@ -59,7 +59,10 @@ function compactItems(items) {
       const sku = item?.sku || item?.variant_sku || item?.title || 'Item';
       const qty = Number(item?.quantity) || 0;
       const mfg = formatFn6MfgPerGram(item);
-      const mfgPart = mfg === FN6_DASH ? '' : ` (Mfg ${mfg})`;
+      const mfgTotal = formatFn6MfgTotal(item);
+      const mfgPart = mfg === FN6_DASH
+        ? ''
+        : ` (Mfg ${mfg}${mfgTotal === FN6_DASH ? '' : `, total ${mfgTotal}`})`;
       return `${sku}${qty > 1 ? ` ×${qty}` : ''}${mfgPart}`;
     })
     .join(', ');
@@ -83,7 +86,7 @@ function OrderItems({ items }) {
               {qty > 1 ? <span className="text-xs text-muted-foreground">×{qty}</span> : null}
             </div>
             <div className="text-xs text-muted-foreground tabular-nums">
-              Mfg / g: {formatFn6MfgPerGram(item)}
+              Mfg / g: {formatFn6MfgPerGram(item)} · Total: {formatFn6MfgTotal(item)}
               {item?.weight_g != null ? ` · ${Number(item.weight_g).toFixed(3)} g` : ''}
             </div>
           </div>

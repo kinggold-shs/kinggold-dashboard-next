@@ -6,6 +6,8 @@ import {
   FN6_DASH,
   fn6Quantity,
   formatFn6Currency,
+  formatFn6MfgPerGram,
+  formatFn6MfgTotal,
   formatFn6Weight,
 } from '../lib/fn6ItemFields';
 
@@ -149,17 +151,20 @@ export default function Fn6ItemMetadataPanel({
             item.dollar != null ? `$1 = EGP ${Number(item.dollar).toFixed(2)}` : FN6_DASH
           }
           />
-          {item.tot_cr != null && Number(item.tot_cr) !== 0 ? (
-            <Field label="Total credit" value={formatFn6Weight({ go_cr: item.tot_cr })} />
-          ) : null}
+          {/* اجمالي الاجر — a money amount, not a weight. It used to render
+              through formatFn6Weight, which printed it as grams. */}
+          <Field label="Mfg / g" value={formatFn6MfgPerGram(item)} />
+          <Field label="Total mfg" value={formatFn6MfgTotal(item)} />
           {item.sal_pr != null && Number(item.sal_pr) > 0 ? (
             <Field label="Sale price" value={formatFn6Currency(item.sal_pr)} />
           ) : null}
+          {/* سعر البيـع per gram — the charge inside the customer price. Not the
+              making charge above; the two were previously conflated. */}
           {item.prc != null && Number(item.prc) > 0 ? (
-            <Field label="Extra price (EGP)" value={formatFn6Currency(item.prc)} />
+            <Field label="Sell charge / g (EGP)" value={formatFn6Currency(item.prc)} />
           ) : null}
           {item.prcus != null && Number(item.prcus) > 0 ? (
-            <Field label="Extra price (USD)" value={`$${Number(item.prcus).toFixed(2)}`} />
+            <Field label="Sell charge / g (USD)" value={`$${Number(item.prcus).toFixed(2)}`} />
           ) : null}
           {showInventoryCompare ? (
             <InventoryCompare

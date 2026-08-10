@@ -17,7 +17,12 @@ import {
   ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown, Settings,
 } from 'lucide-react';
 
-import { formatFn6Currency, formatFn6MfgPerGram } from '../../lib/fn6ItemFields';
+import {
+  formatFn6Currency,
+  formatFn6MfgPerGram,
+  formatFn6MfgTotal,
+  formatFn6SellChargePerGram,
+} from '../../lib/fn6ItemFields';
 
 const DASH = '—';
 const SKELETON_ROWS = [1, 2, 3, 4, 5, 6];
@@ -26,10 +31,10 @@ const COLUMNS = [
   { title: 'Karat', key: 'co', sortable: true },
   { title: 'Weight (g)', key: 'go_cr', sortable: true },
   { title: 'Qty', key: 'qt', sortable: true },
-  // The manufacturer's per-gram charge added to the 18K rate before multiplying
-  // by weight — price = round5((pr18 + prc) × weight). Shown so the price can
-  // be traced back to its inputs at a glance.
-  { title: 'Mfg / g', key: 'prc', sortable: true },
+  // مصنعيه الجرام (tot_pg) — the making charge. Separate from سعر البيـع (prc),
+  // the per-gram charge that goes into the price; that one is shown on the
+  // scan card, not here, to keep the table narrow.
+  { title: 'Mfg / g', key: 'tot_pg', sortable: true },
   { title: 'Price', key: 'price', sortable: true },
 ];
 
@@ -81,8 +86,12 @@ function ScanResult({ item }) {
         <Field label="Total Weight" value={item.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH} />
         <Field label="Total Price" value={item.price != null ? formatFn6Currency(item.price) : DASH} />
         <Field label="Quantity" value={item.qt} />
-        {item.prc > 0 && <Field label="Mfg / g (EGP)" value={formatFn6Currency(item.prc)} />}
-        {item.prcus > 0 && <Field label="Mfg / g (USD)" value={`$${Number(item.prcus).toFixed(2)}`} />}
+        {/* مصنعيه الجرام is per gram and so is unchanged by a weight edit;
+            اجمالي الاجر is the one that moves, so both are shown. سعر البيـع
+            is kept separate — it's what the total price is built from. */}
+        <Field label="Mfg / g" value={formatFn6MfgPerGram(item)} />
+        <Field label="Total Mfg" value={formatFn6MfgTotal(item)} />
+        <Field label="Sell charge / g" value={formatFn6SellChargePerGram(item)} />
       </div>
 
       <div className="scan-result-actions">
@@ -114,6 +123,8 @@ function SoldResult({ item, soldInfo }) {
   // The other inputs to the price formula — price = round5((pr18 + prc) × weight).
   // Without these the sold price can't be reconciled against the 18K rate at sale.
   const mfgPerGram = formatFn6MfgPerGram(item);
+  const mfgTotal = formatFn6MfgTotal(item);
+  const sellChargePerGram = formatFn6SellChargePerGram(item);
   const weight = item?.go_cr != null ? `${Number(item.go_cr).toFixed(3)} g` : DASH;
   // This card only renders for items that are SOLD, so remaining stock is 0 by
   // definition — don't surface the FN6 qt field here, which still holds the
@@ -144,6 +155,8 @@ function SoldResult({ item, soldInfo }) {
         <Field label="Sold Price" value={soldPrice} />
         <Field label="18K at sale" value={gold18k} />
         <Field label="Mfg / g" value={mfgPerGram} />
+        <Field label="Total Mfg" value={mfgTotal} />
+        <Field label="Sell charge / g" value={sellChargePerGram} />
         <Field label="Total Weight" value={weight} />
         <Field label="Quantity" value={quantity} />
         <Field label="21K at sale" value={gold21k} />
