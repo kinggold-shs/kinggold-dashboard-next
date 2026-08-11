@@ -15,7 +15,7 @@ export async function GET(request) {
       search: searchParams.get('search') || '',
       from: searchParams.get('from') || '',
       to: searchParams.get('to') || '',
-      // all | paid | pending | voided. Defaults to 'all' so no order is hidden
+      // all | paid | pending | voided | partially_refunded. Defaults to 'all' so no order is hidden
       // and the order numbers run with no gaps.
       status: searchParams.get('status') || 'all',
     });

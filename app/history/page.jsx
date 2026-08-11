@@ -20,6 +20,7 @@ const TABS = [
   { key: 'paid', label: 'Paid' },
   { key: 'pending', label: 'Pending' },
   { key: 'voided', label: 'Voided' },
+  { key: 'partially_refunded', label: 'Partially Refunded' },
 ];
 
 function formatCurrency(value, currency = 'EGP') {
