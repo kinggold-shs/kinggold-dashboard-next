@@ -85,6 +85,8 @@ export async function GET(request) {
         weight: Number(item.go_cr),
         prc: Number(item.prc),
         prcus: Number(item.prcus),
+        gcoPr: Number(item.gco_pr),
+        gcoPrUs: Number(item.gco_pr_us),
       });
       const price = roundToNearest5(raw);
       results[sku] = {
